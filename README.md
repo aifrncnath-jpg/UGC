@@ -2,6 +2,20 @@
 
 A two-stage AI pipeline for producing direct-response UGC video ads for Meta Ads (Facebook + Instagram) and TikTok.
 
+## Continuous handoff chain
+
+Each stage ends by emitting one structured block that the next stage ingests in a single paste, so the workflow never breaks:
+
+```
+Stage 1  Script Generator   --emits-->  LOCKED PACKAGE
+Stage 2  Storyboard Prompt   --ingests LOCKED PACKAGE, emits-->  STORYBOARD PACKAGE (+ asset manifest)
+   (generate real assets: keyframes, clips, VO, b-roll; fill the manifest)
+Stage 3  Editing Prompt      --ingests STORYBOARD PACKAGE-->  EDIT MAP (timecoded cut plan)
+   (a human or editing tool executes the Edit Map -> final video)
+```
+
+Note: the Editing Prompt plans from the package text and maps cuts to real filenames in the manifest. It does not watch the rendered clips, it builds the blueprint an editor or editing tool follows.
+
 ## Pipeline
 
 1. **Script Generator v2** collects the brand brief, derives the audience, generates hooks, and writes the locked script (dialogue, tone, delivery, gestures). It outputs a single structured `LOCKED PACKAGE` block.

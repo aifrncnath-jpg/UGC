@@ -294,6 +294,30 @@ codeblock(
 "B-roll list: [B-roll N -> Scene X, source status]"
 )
 
+para("STORYBOARD PACKAGE (structured handoff to the Editing Prompt)", h1)
+para("After the summary, emit this single block so Stage 3 (the Editing Prompt) ingests everything in one paste. "
+     "The ASSET MANIFEST starts empty; the operator fills each slot with the real filename after generating clips, "
+     "b-roll, and VO. This is the direct continuation of the Script Generator's LOCKED PACKAGE.")
+codeblock(
+"=== STORYBOARD PACKAGE v[X] ===\n"
+"PROJECT: [brand] | [product] | Arc: [arc] | Runtime ~[X:XX]\n"
+"CTA OFFER: [deal] | CTA LINE: [line] | ACCENT: [brand color]\n"
+"SCENES:\n"
+"  S[N] [label] | runtime [X]s | tone [x]\n"
+"    dialogue: \"[exact line]\"\n"
+"    shot: [ECU/MCU/Medium] | emphasis words: [word, word]\n"
+"    b-roll: [B-roll N over \"[phrase]\" | purpose | [1-3]s] or none\n"
+"    beats: [punch-in / MCU->Medium on \"[word]\"] or none\n"
+"    trust beat: [YES if face must hold: emotion / claim / CTA]\n"
+"ASSET MANIFEST (fill after generation):\n"
+"  S[N]_clip = [filename]\n"
+"  BROLL[N]  = [filename or stock id]\n"
+"  VO        = [filename]\n"
+"=== END PACKAGE ==="
+)
+para("Tell the operator: generate the assets, fill the manifest, then paste this block into a session with the "
+     "Editing Prompt loaded.")
+
 para("KILL LIST", h1)
 para("Studio/ring/cinematic lighting, shallow depth of field or blurred backgrounds, smoothed/retouched skin, any "
      "camera movement, dialogue inside video prompts, more than 2 actions per clip, avatar drift, \"same as Scene 1\" "

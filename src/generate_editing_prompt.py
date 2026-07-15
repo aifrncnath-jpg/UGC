@@ -58,12 +58,28 @@ para("This edit must look like authentic phone-shot UGC that a real person made,
      "render. Every choice below protects that: fast but motivated cuts, natural sound, and color CORRECTION only. "
      "The moment it feels over-produced, trust drops and so does conversion.")
 
-para("INPUTS", h1)
+para("INPUT: THE STORYBOARD PACKAGE (single paste, continues the chain)", h1)
+para("Ingest the STORYBOARD PACKAGE block emitted by Stage 2 (the Storyboard Master Prompt). It carries the "
+     "project info, every scene with runtime, dialogue, shot size, emphasis words, b-roll and beat notes, trust "
+     "beats, the CTA offer, the caption accent color, and an ASSET MANIFEST. This is the direct continuation of "
+     "the Script Generator's LOCKED PACKAGE, so the whole pipeline flows in one line each stage.")
+codeblock(
+"=== STORYBOARD PACKAGE v[X] ===\n"
+"PROJECT / CTA / ACCENT\n"
+"SCENES: S[N] runtime, dialogue, shot, emphasis words,\n"
+"        b-roll notes, beats, trust beat\n"
+"ASSET MANIFEST: S[N]_clip, BROLL[N], VO  (real filenames)\n"
+"=== END PACKAGE ==="
+)
+para("HARD GATE: if the ASSET MANIFEST is empty (clips / b-roll / VO not yet generated), stop and tell the "
+     "operator to generate the assets and fill the manifest first. You plan the edit from the package text and map "
+     "every cut to a real filename from the manifest. You do not watch the video files; you build the blueprint an "
+     "editor or editing tool executes.")
+para("What you analyze vs. what you cannot:", h2)
 bullets([
-    "Avatar clips: one per scene, 9:16, generated per the Storyboard Master Prompt.",
-    "B-roll cutaways and in-scene beat notes (from the retention module).",
-    "Voiceover / dialogue audio (ElevenLabs, HeyGen, or equivalent) with the locked script + word timing.",
-    "Offer + CTA line. Brand accent color for captions.",
+    "You DO analyze: scene order, runtimes, dialogue, emphasis words, b-roll/beat notes, trust beats, CTA.",
+    "You do NOT: open or watch the rendered clips. Plan from the metadata, like reading a shot list before the timeline.",
+    "If a manifest slot is missing a file, flag that scene as blocked instead of guessing.",
 ])
 
 para("GLOBAL SETTINGS", h1)
@@ -176,7 +192,8 @@ rule()
 para("OUTPUT FORMAT: EDIT MAP (one block per scene, with timecodes)", h1)
 codeblock(
 "[00:00-00:03] SCENE 1 - HOOK\n"
-"Video: avatar clip S1 (MCU); punch-in 100->110% on \"[word]\"\n"
+"Video: S1_clip (MCU); punch-in 100->110% on \"[word]\"\n"
+"Audio: VO 00:00.0\n"
 "Cut in: hard cut on the first spoken word\n"
 "B-roll: none (hold the face for the hook)\n"
 "Captions: word-by-word; highlight \"[keyword]\" in [accent]\n"
@@ -185,8 +202,8 @@ codeblock(
 "Color: match to S2 (neutral, true skin)\n"
 "\n"
 "[00:03-00:09] SCENE 2 - PROBLEM\n"
-"Video: avatar clip S2; jump cut to remove pause at \"[word]\"\n"
-"B-roll 1: over \"[phrase]\", 2s, context shot (see storyboard)\n"
+"Video: S2_clip; jump cut to remove pause at \"[word]\"\n"
+"B-roll: BROLL1 over \"[phrase]\", 2s (L-cut, VO continues)\n"
 "Beat: MCU->Medium on \"[word]\" to hold cadence\n"
 "Captions: phrase-by-phrase, synced\n"
 "SFX: tick on keyword pop\n"
