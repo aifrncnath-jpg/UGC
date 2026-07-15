@@ -22,6 +22,11 @@ Note: the Editing Prompt plans from the package text and maps cuts to real filen
 2. **Storyboard Master Prompt v2** ingests that package in one paste and builds the full storyboard: keyframe prompts, video prompts, and b-roll cutaways, tuned for natural UGC realism and character consistency.
 3. **Editing Prompt (Stage 3)** takes the generated clips, b-roll, and voiceover and assembles the final retention-optimized ad: pacing, cuts, transitions, effects/keyframes, captions, SFX, BGM, and color correction.
 
+### Settings and scene modes
+
+- **Authentic settings:** locations are real, lived-in, and varied (car, couch, hallway, balcony, backyard, sidewalk, coffee shop, cluttered desk), never a staged set. A **multi-location option** allows 2-3 real locations per ad for testimonial-style variety, with identity/clothing continuity rules.
+- **Scene modes:** each scene is assigned one of `A-CAM` (avatar to camera), `AVATAR-ACTION` (avatar demonstrating), `VO+B-ROLL` (voiceover over footage, avatar off screen), or `HYBRID`. Trust beats (hook, core claim, CTA) stay on the face; show-don't-tell beats (science, results, ingredients) go to VO+B-roll. Mode carries through the STORYBOARD PACKAGE into the edit.
+
 ## Files
 
 | File | Description |

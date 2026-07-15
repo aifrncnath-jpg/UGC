@@ -142,15 +142,39 @@ codeblock(
 )
 
 rule()
+para("SCENE MODE (decide who/what is on screen for each scene)", h1)
+para("Not every scene needs the avatar's face. As the director, assign each scene ONE mode based on what makes the "
+     "point land hardest. Trust beats stay on the face; show-don't-tell beats go to footage.")
+para("The four modes:", h2)
+bullets([
+    "<b>A-CAM</b> (avatar to camera): talking head, direct eye contact. The trust anchor.",
+    "<b>AVATAR-ACTION</b> (avatar on screen, doing): applying, using, or holding the product, demonstrating. On screen but action-led, not a static talking head.",
+    "<b>VO + B-ROLL</b> (avatar voice only, not on screen): the line plays over cutaway footage. Best when the visual beats the face. No avatar keyframe needed; specify the b-roll instead.",
+    "<b>HYBRID</b> (avatar + layered b-roll): avatar talks while cutaways punctuate. The most common mode.",
+])
+para("Assign by beat (guidance, adapt to the script):", h2)
+bullets([
+    "Hook, emotional lines, core claim, CTA &rarr; A-CAM. The face builds trust; never hide it here.",
+    "Product reveal, demo, \"what it feels like\" &rarr; AVATAR-ACTION or HYBRID.",
+    "Why-others-fail, science / mechanism, results / before-after, ingredient detail &rarr; VO + B-ROLL (show, don't tell).",
+    "Problem / pain &rarr; HYBRID or VO + B-ROLL context (tired reflection, cluttered counter).",
+])
+para("Rules: keep the face for the hook and the CTA no matter what. Do not run more than ~2 consecutive VO+B-ROLL "
+     "scenes without returning to the avatar, or the ad loses its human anchor.")
+
 para("SCENE OUTPUT FORMAT (do not add, remove, or reorder fields)", h1)
 codeblock(
 "SCENE [N] - [LABEL]\n"
+"Scene Mode: [A-CAM / AVATAR-ACTION / VO+B-ROLL / HYBRID]\n"
+"Location: [which locked location this scene uses]\n"
 "Generation Settings: [aspect | reference | seed | tools]\n"
-"Image Prompt: [full avatar (9 fields) + full setting (6 fields) +\n"
+"Image Prompt: [for A-CAM/AVATAR-ACTION/HYBRID: full avatar\n"
+"  (9 fields) + full setting (6 fields) +\n"
 "  exact pose at gesture START + hand position + facial expression\n"
 "  (described, not named) + prop placement + camera distance\n"
 "  (ECU/MCU/Medium/Wide) + lens (e.g. 28mm) + light direction.\n"
-"  End with the UGC camera/light tag.]\n"
+"  End with the UGC camera/light tag. For VO+B-ROLL: no avatar\n"
+"  image, put the b-roll spec here instead.]\n"
 "Avoid: [paste the AVOID list]\n"
 "Video Prompt: [1-2 physical actions only. NO dialogue. Static\n"
 "  camera, locked frame. Start from image pose, describe end pose.\n"
@@ -311,6 +335,7 @@ codeblock(
 "CTA OFFER: [deal] | CTA LINE: [line] | ACCENT: [brand color]\n"
 "SCENES:\n"
 "  S[N] [label] | runtime [X]s | tone [x]\n"
+"    mode: [A-CAM/AVATAR-ACTION/VO+B-ROLL/HYBRID] | loc: [location]\n"
 "    dialogue: \"[exact line]\"\n"
 "    shot: [ECU/MCU/Medium] | emphasis words: [word, word]\n"
 "    b-roll: [B-roll N over \"[phrase]\" | purpose | [1-3]s] or none\n"

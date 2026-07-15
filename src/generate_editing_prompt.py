@@ -66,8 +66,8 @@ para("Ingest the STORYBOARD PACKAGE block emitted by Stage 2 (the Storyboard Mas
 codeblock(
 "=== STORYBOARD PACKAGE v[X] ===\n"
 "PROJECT / CTA / ACCENT\n"
-"SCENES: S[N] runtime, dialogue, shot, emphasis words,\n"
-"        b-roll notes, beats, trust beat\n"
+"SCENES: S[N] runtime, MODE, LOCATION, dialogue, shot,\n"
+"        emphasis words, b-roll notes, beats, trust beat\n"
 "ASSET MANIFEST: S[N]_clip, BROLL[N], VO  (real filenames)\n"
 "=== END PACKAGE ==="
 )
@@ -77,7 +77,8 @@ para("HARD GATE: if the ASSET MANIFEST is empty (clips / b-roll / VO not yet gen
      "editor or editing tool executes.")
 para("What you analyze vs. what you cannot:", h2)
 bullets([
-    "You DO analyze: scene order, runtimes, dialogue, emphasis words, b-roll/beat notes, trust beats, CTA.",
+    "You DO analyze: scene order, runtimes, scene MODE, location, dialogue, emphasis words, b-roll/beat notes, trust beats, CTA.",
+    "Scene mode drives the cut: A-CAM/AVATAR-ACTION/HYBRID scenes use the avatar clip; VO+B-ROLL scenes use only b-roll under the VO (no avatar clip). Cut across locations on hard cuts.",
     "You do NOT: open or watch the rendered clips. Plan from the metadata, like reading a shot list before the timeline.",
     "If a manifest slot is missing a file, flag that scene as blocked instead of guessing.",
 ])
@@ -201,14 +202,22 @@ codeblock(
 "BGM: bed in low, quiet under hook\n"
 "Color: match to S2 (neutral, true skin)\n"
 "\n"
-"[00:03-00:09] SCENE 2 - PROBLEM\n"
+"[00:03-00:09] SCENE 2 - PROBLEM (HYBRID)\n"
 "Video: S2_clip; jump cut to remove pause at \"[word]\"\n"
 "B-roll: BROLL1 over \"[phrase]\", 2s (L-cut, VO continues)\n"
 "Beat: MCU->Medium on \"[word]\" to hold cadence\n"
 "Captions: phrase-by-phrase, synced\n"
 "SFX: tick on keyword pop\n"
 "BGM: continue bed, ducked under VO\n"
-"Color: match S1"
+"Color: match S1\n"
+"\n"
+"[00:09-00:14] SCENE 4 - SCIENCE (VO+B-ROLL, no avatar clip)\n"
+"Video: BROLL2 + BROLL3 (mechanism/ingredient), VO over top\n"
+"Cut: hard cut b-roll to b-roll on the beat, micro Ken Burns\n"
+"Captions: keyword highlights synced to VO\n"
+"SFX: soft tick on each cut\n"
+"BGM: slight lift\n"
+"Color: match to avatar scenes (one consistent phone look)"
 )
 para("Continue for every scene. End with the CTA scene: face on camera for trust, offer/price callout composited, "
      "strongest momentum, BGM lift, then a clean 1s hold.")

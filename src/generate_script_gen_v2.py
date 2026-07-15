@@ -149,6 +149,12 @@ para("Lock it with: exact location; 1-2 specific mundane / incidental details (a
      "background depth; and lighting type (natural morning / afternoon / overcast / outdoor). Natural light only. "
      "The space should feel incidental and real, like the camera caught a moment, not like a dressed set. If "
      "outdoor, note real ambient background (trees, passersby, cars) kept in focus in the deep-focus phone look.")
+para("<b>Multi-location option:</b> For authentic testimonial-style ads, lock a small set of 2-3 real locations "
+     "instead of one (e.g. bedroom mirror for the hook, parked car for a mid beat, couch for the CTA), matching how "
+     "a real person films across a day. Rules: describe each location fully and separately; assign every scene to "
+     "one locked location; keep the avatar's identity consistent everywhere; keep clothing and hair identical unless "
+     "a time-jump is scripted (then note the change explicitly, e.g. different day); keep lighting internally "
+     "consistent within each location. Max 3 locations. Never switch location mid-scene.")
 para("If the producer says \"surprise me,\" pick the best match for the audience and justify in one sentence. "
      "Locked once approved.")
 
