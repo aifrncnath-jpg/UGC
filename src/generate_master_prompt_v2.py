@@ -164,37 +164,58 @@ para("Front-facing baseline: face and torso generally toward the lens. Natural s
      "talking to their phone, not a stiff mugshot.")
 
 rule()
-para("B-ROLL MODULE (cutaways over continuing voiceover)", h1)
-para("B-roll is an overlay cutaway placed OVER the avatar's ongoing dialogue to show what words are describing. It "
-     "does not replace a talking scene. Voiceover continues underneath.")
-para("How many (by arc):", h2)
+para("RETENTION EDITING + B-ROLL (retention-driven, NOT a fixed count)", h1)
+para("Retention is not about a number of b-rolls. It is about eliminating visual dead air. Viewer attention decays "
+     "every few seconds, so every moment the eye has nothing new to process is a drop-off risk. Do not cap the "
+     "count. Cap the dead air. Engineer a new visual beat roughly every 2-3 seconds (1.5-2s on high-tempo TikTok).")
+para("What counts as a visual beat:", h2)
 bullets([
-    "Quick Testimonial (4-6) and Standard (8 scenes): 1-2 b-rolls total.",
-    "Authority/Expert (8-10): 2-3 b-rolls.",
-    "Extended Review (20-24): 4-6 b-rolls.",
+    "Cut to b-roll, product ECU cutaway, or before/after / proof insert.",
+    "Punch-in zoom on the avatar, or a camera-distance change (MCU to Medium).",
+    "Animated caption emphasis on a key word.",
+    "A static talking-head held longer than ~3-4s with NO change is a retention leak. Break it.",
 ])
-para("Where to insert (only these beats):", h2)
+para("Where b-roll goes (map it to the exact words):", h2)
 bullets([
-    "Product texture / ingredient mention &rarr; ECU product or texture b-roll (usually the Science or Reveal/Demo scene).",
-    "Demo / result / \"what it feels like\" &rarr; application or texture b-roll.",
-    "Problem / pain description &rarr; optional context b-roll (e.g. tired reflection in mirror).",
+    "Show-don't-tell: any concrete noun, sensory word, or action in the VO gets a matching visual layered over it (\"melts in\" &rarr; texture macro; \"3 minutes\" &rarr; timer; \"my whole routine\" &rarr; shelf of products).",
+    "Proof: each distinct claim/benefit gets its own visual (demo, texture, before/after, result).",
+    "Re-hook the retention valley: add a pattern interrupt at the mid-point where attention dips (open-loop payoff, \"but here's the part nobody tells you\").",
+    "Pain lines: context b-roll (tired reflection, cluttered counter) to make the pain visible.",
 ])
-para("Timing rules:", h2)
+para("Keep the human spine (authenticity guardrail):", h2)
 bullets([
-    "Cutaway length 1.5 to 3s, placed mid-scene over the exact relevant phrase, then cut back to the avatar.",
-    "Never open on b-roll in Scene 1 (no long establishing shots).",
+    "The avatar's face is the trust anchor. Return to it on emotional lines, the core claim, and the CTA. Do not cut away during trust-building moments.",
+    "VO never stops. B-roll is layered OVER continuing dialogue, then cut back. It does not replace a talking scene.",
+    "Over-cutting kills the authentic UGC feel as fast as dead air kills retention. Serve the words; keep the person.",
+])
+para("Density by style (guidance, not a cap):", h2)
+bullets([
+    "Authentic testimonial: lighter cutaways, but still 1 proof visual per claim plus punch-in zooms so the face is never static.",
+    "High-tempo performance UGC (TikTok): dense, a visual change every 1.5-2s, heavy b-roll + captions + zooms.",
+    "Authority/expert: moderate, b-roll on mechanism/science and results, face held on credibility lines.",
+])
+para("Timing + matching:", h2)
+bullets([
+    "Cutaway length 1 to 3s, placed over the exact relevant phrase, then cut back to the avatar.",
+    "Never open on b-roll in Scene 1 (no long establishing shots). The hook is the strongest curiosity frame.",
     "B-roll lighting, color temperature, and setting must MATCH the avatar scene so the cut is invisible.",
 ])
-para("B-roll output format (one block per b-roll):", h2)
+para("Per-cutaway output format (one block per beat):", h2)
 codeblock(
 "B-ROLL [N] - insert in SCENE [X], over the phrase \"[exact words]\"\n"
-"Duration: [1.5-3]s\n"
+"Purpose: [show-don't-tell / proof / pattern interrupt / pain]\n"
+"Duration: [1-3]s\n"
 "Shows: [what is on screen]\n"
 "SOURCE PRIORITY:\n"
 "  1. Brand library: [exact asset to look for]\n"
 "  2. Stock search: \"[exact search phrase]\" on [STOCK_SOURCES]\n"
 "  3. AI generate (fallback): [prompt, following UGC Realism Spec]\n"
 "Match note: [lighting / color temp / setting must match Scene X]"
+)
+para("Also mark in-scene beats that need no new asset (keeps the cadence without over-cutting):", h2)
+codeblock(
+"BEAT - SCENE [X] on \"[word]\": [punch-in zoom / MCU->Medium /\n"
+"  caption emphasis]"
 )
 para("Stock search guidance (give the operator exact phrases). Examples for skincare:", h2)
 bullets([
@@ -248,7 +269,9 @@ codeblock(
 "[ ] No legible text on product surfaces\n"
 "[ ] Every clip has the 1s stillness buffer\n"
 "[ ] Duration = runtime + 1s (words / 2.5)\n"
-"[ ] B-roll count matches arc; each matches its scene's lighting\n"
+"[ ] Visual beat every ~2-3s; no static talking-head over ~3-4s\n"
+"[ ] Each claim has a proof visual; face held on trust beats + CTA\n"
+"[ ] Every b-roll matches its scene's lighting / color / setting\n"
 "Result: PASS / FIX NEEDED"
 )
 
