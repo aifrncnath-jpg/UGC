@@ -139,8 +139,16 @@ bullets([
     "Expression baseline (resting face)",
     "<b>Body-position default</b> (standing / seated / leaning)",
 ])
-para("<b>SETTING LOCK:</b> room type; wall color/material; counter or desk surface; window position + light "
-     "direction; background objects; lighting type (natural morning/afternoon/overcast). Natural light only.")
+para("<b>SETTING LOCK (authentic real-world, not a staged set):</b> Choose ONE lived-in location where this "
+     "specific person would actually film. Go beyond the generic kitchen/bedroom/bathroom defaults. Real UGC is "
+     "shot wherever life happens: a parked car, a messy real bedroom mid-morning, a couch with a crumpled blanket, "
+     "a bathroom mid-routine, a hallway or stairwell, a balcony, a backyard, a park bench, a sidewalk on a walk, "
+     "a coffee-shop corner, a cluttered desk. Pick what fits the avatar and the moment.")
+para("Lock it with: exact location; 1-2 specific mundane / incidental details (a half-full mug, a charger cable, "
+     "a laundry pile just out of frame); surface and materials; window or light-source position + direction; "
+     "background depth; and lighting type (natural morning / afternoon / overcast / outdoor). Natural light only. "
+     "The space should feel incidental and real, like the camera caught a moment, not like a dressed set. If "
+     "outdoor, note real ambient background (trees, passersby, cars) kept in focus in the deep-focus phone look.")
 para("If the producer says \"surprise me,\" pick the best match for the audience and justify in one sentence. "
      "Locked once approved.")
 

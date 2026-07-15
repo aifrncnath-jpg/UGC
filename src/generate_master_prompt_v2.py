@@ -89,6 +89,13 @@ bullets([
     "Natural ambient / window light ONLY. Directional and a little uneven, with soft real shadows.",
     "BAN: studio lighting, ring light, softbox, three-point, rim light, backlight halo, or any cinematic lighting.",
 ])
+para("Setting (authentic, lived-in, not a staged set)", h2)
+bullets([
+    "Use the locked real-world location as-is. Keep it incidental and lived-in, not dressed or clean.",
+    "Go beyond generic kitchen/bedroom clichés: real cars, couches, hallways, balconies, backyards, sidewalks, coffee shops, cluttered desks are all valid if they fit the avatar and moment.",
+    "Include the small mundane details from the lock (a mug, a cable, laundry out of frame). Imperfect and real beats tidy and staged.",
+    "Outdoor scenes keep real ambient background (trees, passersby, cars) in focus, never a blurred studio backdrop.",
+])
 para("Skin and person", h2)
 bullets([
     "Visible pores, real skin texture, minor blemishes, natural shine, fine lines. No retouching, no smoothing, no beauty filter.",
