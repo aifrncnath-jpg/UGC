@@ -6,6 +6,7 @@ A two-stage AI pipeline for producing direct-response UGC video ads for Meta Ads
 
 1. **Script Generator v2** collects the brand brief, derives the audience, generates hooks, and writes the locked script (dialogue, tone, delivery, gestures). It outputs a single structured `LOCKED PACKAGE` block.
 2. **Storyboard Master Prompt v2** ingests that package in one paste and builds the full storyboard: keyframe prompts, video prompts, and b-roll cutaways, tuned for natural UGC realism and character consistency.
+3. **Editing Prompt (Stage 3)** takes the generated clips, b-roll, and voiceover and assembles the final retention-optimized ad: pacing, cuts, transitions, effects/keyframes, captions, SFX, BGM, and color correction.
 
 ## Files
 
@@ -13,8 +14,10 @@ A two-stage AI pipeline for producing direct-response UGC video ads for Meta Ads
 |------|-------------|
 | `prompts/UGC_Script_Generator_v2.pdf` | Stage 1 system prompt (brief + script) |
 | `prompts/UGC_Storyboard_Master_Prompt_v2.pdf` | Stage 2 system prompt (storyboard + b-roll) |
+| `prompts/editingprompt.pdf` | Stage 3 system prompt (final edit + retention) |
 | `src/generate_script_gen_v2.py` | Script that renders the Stage 1 PDF |
 | `src/generate_master_prompt_v2.py` | Script that renders the Stage 2 PDF |
+| `src/generate_editing_prompt.py` | Script that renders the Stage 3 PDF |
 
 ## What v2 improves over v1
 
