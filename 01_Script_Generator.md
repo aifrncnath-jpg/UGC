@@ -8,7 +8,7 @@ HOW THIS EARNS ITS EDGE
 1. Strategy lives upstream. The hardest thinking happens on the angle and hook, because that is where most performance variance sits. Production consistency is the downstream prompt's job.
 2. Language is mined, not invented. Hooks and pain lines are built from verbatim customer wording pulled from reviews and social, because real phrasing beats clever phrasing.
 3. You ship a hook slate, not one script. One stable body, many swappable hooks, so the ad account can find the winner. That is the only real advantage of AI UGC: volume and velocity.
-4. Authenticity is engineered. Dialogue is written with breaths, filler, and self-correction so it survives voice generation and does not read as an ad.
+4. Authenticity is engineered through cadence, not dead air. Dialogue is tight and natural with emphasis and pace baked into the delivery direction, no scripted breaths or pauses that create silence you have to hard-cut later.
 5. Compliance is flag-and-cite, and includes AI-content disclosure and honest-endorsement rules, so client accounts stay safe.
 6. Everything is traceable. Angles and hooks carry IDs so the client can attribute performance and feed winners back.
 
@@ -154,15 +154,14 @@ Dialogue: "(exact spoken line)"
 English Translation: "(only if non-English)"
 Word count: (X) | Est. runtime: ~(X)s | Under 8s cap: (YES/NO)
 Emotional tone: (one line)
-Delivery direction: (2 to 3 sentences on how it should sound and what the speaker feels internally; character motivation, not acting instructions)
-Voice realism notes: (where a breath falls, any filler or self-correction, pace changes, a small laugh; see rule below)
+Delivery direction: (2 to 3 sentences on how it should sound and what the speaker feels internally, plus tempo and which word to emphasize; character motivation, not acting instructions; no scripted breaths or pauses)
 Gestures: (key physical beats synced to words)
 
 DIALOGUE RULES
 8-second max per scene. About 22 words max (24 to 25 fast cadence, 16 to 18 slow). No dead air. If a line exceeds the cap, report word count, runtime, and how many words to cut, then let the client decide. Do not rewrite words without permission.
 
-VOICE REALISM RULE (the biggest anti-AI lever, do not skip)
-Human speech is imperfect, and flat, evenly paced, filler-free delivery is the loudest AI tell. Build imperfection into the dialogue itself: mark an audible breath before or inside a line, allow a natural filler ("honestly," "so," "I mean") where a real person would use one, script one genuine self-correction somewhere in the body ("I never do these, wait, okay"), and vary pace hard between scenes (rush one, drag the next). Keep it subtle and true to the avatar. This is written into the Dialogue and Voice realism notes so the downstream voice layer reproduces it. If the client has real human VO available, note that it should carry these cues.
+DELIVERY CADENCE RULE (keep it human without dead air)
+Flat, evenly paced, robotic delivery is a loud AI tell, but scripted breaths, filler, and pauses create dead air the editor then has to hard-cut, which drags the ad. So do not script breaths, pauses, or filler words, and do not bake self-corrections into the dialogue. Get the natural feel a different way: keep lines short and conversational, use everyday word choice, vary pace between scenes (some tight and quick, some a touch slower), and put the tempo and the emphasis word in the Delivery direction. The voice layer shapes cadence through emphasis and speed, not through silence. If the client has real human VO, they carry the natural cadence live. Result: it sounds like a real person, but every clip stays tight with clean cut points.
 
 CONTENT RULES
 Minimum 3 distinct benefits across the script, no repeats. Target customer identifiable in Scenes 1 to 2. CTA scene references the offer. Avatar described as holding the product. Experiential language only, subject to the honesty rule below.
@@ -192,7 +191,7 @@ MEASUREMENT AND FEEDBACK
 Restate every shortlisted hook ID and the angle ID. Ask the client to report hook rate, hold rate, CTR, and conversion per hook ID so the next slate is built on data, not taste.
 
 HANDOFF TO STORYBOARD MASTER PROMPT
-Confirm all downstream hard-gate fields are present and complete: full brand brief (including PRODUCT APPEARANCE, BACK LABEL DETAILS, PLATFORM PRIORITY, CURRENT OFFER, CTA CLOSING LINE, COMPLIANCE NOTES); locked avatar (including facial hair and body-position default); locked setting (with window position and light direction); locked script (per-scene word count, runtime, tone, delivery, voice realism notes, gestures); and this summary. State: "Ready for the Storyboard Master Prompt. Copy the locked body, the chosen Scene 1 hook (or each shortlisted hook for parallel storyboards), the avatar, the setting, and this handoff into a new session with the Master Prompt loaded."
+Confirm all downstream hard-gate fields are present and complete: full brand brief (including PRODUCT APPEARANCE, BACK LABEL DETAILS, PLATFORM PRIORITY, CURRENT OFFER, CTA CLOSING LINE, COMPLIANCE NOTES); locked avatar (including facial hair and body-position default); locked setting (with window position and light direction); locked script (per-scene word count, runtime, tone, delivery, gestures); and this summary. State: "Ready for the Storyboard Master Prompt. Copy the locked body, the chosen Scene 1 hook (or each shortlisted hook for parallel storyboards), the avatar, the setting, and this handoff into a new session with the Master Prompt loaded."
 
 KILL LIST (NEVER WRITE)
 "Stop scrolling if" hooks. "POV:" unless earned. "Click link in bio." "Thousands of happy customers" or generic social proof. Fake urgency unless the offer is genuinely time-limited. Corporate language ("revolutionary," "game-changing," "clinically proven" unless it is). Lines that read written, not spoken. Em dashes anywhere. Product claims not in the brief. Competitor brand names. Repeated benefits. Personal-attribute callouts that violate policy. Fabricated specific personal results stated as fact.
