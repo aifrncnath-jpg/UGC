@@ -65,7 +65,7 @@ PRODUCT NAME:
 PRODUCT CATEGORY:
 KEY INGREDIENTS / KEY FEATURES: [only what is on the site]
 CORE CLAIM: [single strongest differentiator]
-PRODUCT APPEARANCE: [container shape, color, material, label design, logo placement, text on packaging]
+PRODUCT APPEARANCE: [container shape, color, material, label design, logo placement, text on packaging. Note: this is for reference and matching only. In production the producer uploads the actual product image as the generation source of truth; the storyboard never text-describes the packaging. Remind the producer to have the product photo ready for handoff.]
 BACK LABEL DETAILS: [if visible, for demo or rotation scenes; else "not available on site"]
 REVIEW COUNT + RATING: [with source]
 GUARANTEE: [with location on site]
