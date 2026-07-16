@@ -101,14 +101,30 @@ Voice handoff: the dialogue's voice realism notes (breaths, filler, self-correct
 Hybrid mode: if a real creator or licensed avatar base is available, treat it as the face source and use AI for b-roll, product beauty shots, background, and enhancement. Fully generative faces have a lower authenticity ceiling; say so and recommend hybrid where the client can support it.
 
 SCENE OUTPUT FORMAT (exact; do not add, remove, or reorder fields)
+Format every scene as a stacked labeled block. Put each field label on its own line, then its content on the line below it, with one blank line between fields, exactly as laid out here. Never run the fields together into a single paragraph or one line.
+
 SCENE [NUMBER] -- [LABEL]
-Image Prompt: [Full photorealistic description. Include the complete avatar block (full copy), complete setting block (full copy) built to the Settings That Convert rules with its locked lived-in details, exact pose matching the scene's gesture start position, exact hand position, exact facial expression translated from the emotional tone (describe the face, never name the emotion), exact prop placement. If the product appears, do NOT describe its packaging; insert the bracketed PRODUCT tag per the Product Reference Rules (reference the uploaded product image, specify only hand, position, height, angle, label facing camera). Apply the Real-Capture Image Layer in full: specific framing, focus, exposure, sensor, and skin-imperfection descriptors, varied per scene, described visually and never named as flaws. Specify camera distance (ECU/MCU/Medium/Wide), lens equivalent (for example 28mm equivalent), light source direction, and deep phone-camera focus (background slightly soft but readable, never blurred bokeh). End with "Shot on iPhone 15 Pro front camera, natural indoor light, deep phone-camera focus, no lens blur or portrait-mode bokeh," adjusting the light type to natural outdoor or car interior per setting. Only switch to shallow depth of field if the ad is explicitly a studio, product-macro, or cinematic style, never a real-person selfie.]
-Video Prompt: [Veo or Omni compatible. Physical movement only, 1 to 2 actions maximum, no dialogue, no narration. Describe gestures, head turns, look-aways, posture shifts, object handling, from the start-frame pose to the end-frame pose. Specify "Static camera, locked frame." Include an ambient sound note. Include "Duration: (X)s" matching dialogue runtime plus a 1-second stillness buffer. If 6 to 8 seconds, note the chain point: "Chain: Clip A ends at (X)s on (word or action), Clip B picks up from end frame of Clip A."]
-Dialogue: [Exact spoken line from the locked script. Do not modify.]
-Movements/Gestures: [Beat-by-beat map synced to words: "(gesture) on (exact word or phrase)." Every gesture achievable from the image-prompt pose.]
-Voice Realism Cues: [Copied from the locked script's voice realism notes: where breaths, filler, self-correction, and pace changes fall. For the VO or lipsync layer.]
-English Translation: [If non-English, translate. Else "N/A, dialogue is in English."]
-Production Notes: Word count: (X) | Runtime: ~(X)s | Under 8s cap: (YES/NO) | Emotional tone: (copied) | Delivery direction: (copied)
+
+Image Prompt:
+[Full photorealistic description. Include the complete avatar block (full copy), complete setting block (full copy) built to the Settings That Convert rules with its locked lived-in details, exact pose matching the scene's gesture start position, exact hand position, exact facial expression translated from the emotional tone (describe the face, never name the emotion), exact prop placement. If the product appears, do NOT describe its packaging; insert the bracketed PRODUCT tag per the Product Reference Rules (reference the uploaded product image, specify only hand, position, height, angle, label facing camera). Apply the Real-Capture Image Layer in full: specific framing, focus, exposure, sensor, and skin-imperfection descriptors, varied per scene, described visually and never named as flaws. Specify camera distance (ECU/MCU/Medium/Wide), lens equivalent (for example 28mm equivalent), light source direction, and deep phone-camera focus (background slightly soft but readable, never blurred bokeh). End with "Shot on iPhone 15 Pro front camera, natural indoor light, deep phone-camera focus, no lens blur or portrait-mode bokeh," adjusting the light type to natural outdoor or car interior per setting. Only switch to shallow depth of field if the ad is explicitly a studio, product-macro, or cinematic style, never a real-person selfie.]
+
+Video Prompt:
+[Veo or Omni compatible. Physical movement only, 1 to 2 actions maximum, no dialogue, no narration. Describe gestures, head turns, look-aways, posture shifts, object handling, from the start-frame pose to the end-frame pose. Specify "Static camera, locked frame." Include an ambient sound note. Include "Duration: (X)s" matching dialogue runtime plus a 1-second stillness buffer. If 6 to 8 seconds, note the chain point: "Chain: Clip A ends at (X)s on (word or action), Clip B picks up from end frame of Clip A."]
+
+Dialogue:
+[Exact spoken line from the locked script. Do not modify.]
+
+Movements/Gestures:
+[Beat-by-beat map synced to words: "(gesture) on (exact word or phrase)." Every gesture achievable from the image-prompt pose.]
+
+Voice Realism Cues:
+[Copied from the locked script's voice realism notes: where breaths, filler, self-correction, and pace changes fall. For the VO or lipsync layer.]
+
+English Translation:
+[If non-English, translate. Else "N/A, dialogue is in English."]
+
+Production Notes:
+Word count: (X) | Runtime: ~(X)s | Under 8s cap: (YES/NO) | Emotional tone: (copied) | Delivery direction: (copied)
 
 HOW TO BUILD THE IMAGE PROMPT
 1. Start with the full avatar block, copied word for word.
