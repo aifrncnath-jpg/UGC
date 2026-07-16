@@ -32,7 +32,7 @@ SCENE [NUMBER] -- [LABEL]
 Cut in: [how the scene starts: hard cut, or J-cut, meaning the next line's audio starts while the previous scene's picture is still up. Say which and on what word.]
 Cut out: [how it ends: hard cut, or L-cut, meaning this scene's audio keeps playing while the picture cuts to the next scene or to b-roll. Say which and on what word.]
 Punch-in: [YES or NO. If yes, name the exact emphasis word to punch in on and how tight (small crop, roughly 10 to 20 percent tighter). Punch in on the payoff word, the turn, the benefit, or the surprise, never randomly. Max one punch-in per scene.]
-B-roll: [YES or NO. If yes, what to show (product close-up, hands applying, texture, packaging), over which words, and use an L-cut so the voice keeps running under the b-roll. Source order: brand library, stock, AI generation. If none needed, say NO.]
+B-roll: [YES or NO. If yes, give four things per the B-Roll Playbook below: (1) WHAT to show, (2) OVER WHICH EXACT WORDS, laid in with an L-cut so the voice keeps running, 1 to 2.5 seconds, (3) WHERE TO SOURCE IT, name the first tier to try (brand library, shoot it on your phone, stock with 2 to 3 exact search terms, or screen recording), and (4) IF IT MUST BE AI-GENERATED, the exact ready-to-paste generation prompt. If no b-roll is needed, say NO and one line on why the face should hold the shot instead.]
 Pacing/trim: [where to tighten. Trim the flat silence at the head and tail of the clip and any long empty gap. Keep natural breaths and thinking pauses, do not machine-cut every millisecond. Note if the scene should feel fast or should breathe.]
 Caption emphasis: [which one or two words to scale up, color, or hold on screen, tied to the emotional beat.]
 SFX: [default none. Only note a subtle caption pop if the global policy is EDITED CREATOR.]
@@ -58,6 +58,71 @@ Give the exact order of operations in CapCut for this specific ad:
 9. Export 1080p, 9:16, 30fps, highest bitrate.
 10. Watch once on a real phone before shipping.
 
+B-ROLL PLAYBOOK (WHERE TO PUT IT, WHERE TO FIND IT, HOW TO GENERATE IT)
+B-roll has one job in a UGC ad: prove what she is saying and refresh the visual so attention does not decay. It is not decoration. Every insert must earn its place. Keep each one short, 1 to 2.5 seconds, and always L-cut it so her voice keeps running underneath while the picture cuts to the b-roll, then back to her face.
+
+WHERE TO PLACE B-ROLL (by beat)
+Put b-roll on these beats:
+1. Product reveal: a clean product shot (the reference product on a surface or in hand). This is the one hero product visual.
+2. Ingredient, science, or mechanism line: show the thing she is naming (the dropper, the texture, the ingredient, the device working). Visual proof of the claim.
+3. Benefit or result line: show the experience, texture absorbing, application, a natural skin or product close-up. Never a fake dramatic before/after.
+4. Demo or how-to-use line: application footage, the exact motion she describes.
+5. Any talking-head stretch longer than about 5 seconds: cut in one short b-roll to refresh the frame, then return to her. Retention decays if the picture never changes.
+6. To hide a weak cut or a flubbed micro-moment in the face clip.
+
+WHERE NOT TO PLACE B-ROLL:
+1. The hook (Scene 1). Keep her face. The human is the pattern interrupt, a product shot on the hook kills it.
+2. The emotional peak line, the turn, where her face is doing the selling. Let the face carry it.
+3. The CTA. Keep her face plus the product in hand. Do not cut away at the ask.
+4. Never wall-to-wall b-roll. If her face is gone for most of the ad, it stops feeling like a real person and starts feeling like a commercial.
+
+B-ROLL TYPES (menu by function)
+Product macro: the product on a surface or turning slowly in hand, label to camera. Use the uploaded product reference image.
+Application or demo: dropper to cheek, a pump rubbed into the back of the hand, cap off mid-use, a scoop stirred into a glass.
+Texture or swatch: product on fingertips, absorbing into skin, the pour or the cream spread.
+Result or experiential close-up: a natural skin close-up, a calm morning moment. Experiential only, no guaranteed-result before/after.
+Lifestyle or context: tossing it in a bag, on the morning counter, in the car cupholder. Sells the use-moment.
+Packaging or unboxing: opening the box, sliding the product out.
+Screen recording: the real website, the real reviews, checkout. Use for social-proof or CTA support.
+
+WHERE TO FIND B-ROLL (source in this order)
+1. Brand library first. The brand's website, product pages, their Instagram and TikTok, and any client-provided assets. Product beauty shots and demos usually already exist. Best match, zero cost, on-brand.
+2. Shoot it yourself on a phone. For texture, application, pour, or the product on a counter, you can film it in ten minutes on your own phone. This is the most authentic option and it matches the UGC look better than any stock. Free.
+3. Stock footage. Free: Pexels, Pixabay, Mixkit. Paid: Storyblocks, Artgrid, Envato Elements, Adobe Stock. When you recommend stock, give 2 to 3 exact search terms, for example "vitamin c serum dropper close up", "woman applying serum bathroom natural light", "morning skincare routine phone". Pick raw, natural, phone-shot-looking clips. Reject over-polished cinematic stock, it breaks the UGC feel.
+4. Screen recording. For the site, reviews, or checkout, just screen-record the real thing. Never fake a UI or fabricate review screenshots.
+5. AI generation, last. Only when nothing above fits or you need the exact product on screen. Use the templates below.
+
+IF YOU CANNOT FIND IT, GENERATE IT (exact prompts)
+Match the ad: natural light, phone aesthetic, no cinematic gloss. For any shot with the product, attach the uploaded product reference image and do not describe the packaging. Generate a keyframe (Nano Banana or GPT Image), then animate it (Veo, Kling, or Runway image-to-video). The one place shallow depth of field is allowed is a product-only macro shot, there is no face to give it away and it is a real product-shot look. Keep b-roll clips to 1 to 2.5 seconds.
+
+Product on a surface (hero reveal):
+Image: "[PRODUCT: use the uploaded product reference image exactly, do not alter its label, logo, text, shape, color, or material. Sitting on a cream bathroom counter near a window, label facing camera.] Soft natural window light from the left, a few real water droplets and a folded hand towel nearby, shallow macro focus on the product with the background gently soft, shot on iPhone, natural light, no studio lighting."
+Video: "Static camera, locked frame. The product sits completely still, faint natural light shift only. Duration 2s. Ambient: quiet room tone."
+
+Application to skin (demo):
+Image: "[PRODUCT: use the uploaded product reference image exactly, do not alter its label or packaging. Held in a woman's hand, dropper lifted toward her cheek.] Close on the cheek and hand, warm skin tone with visible pores and natural texture, soft window light from the left, shot on iPhone front-facing realism, deep phone focus, no bokeh, no retouching."
+Video: "Static camera. She lowers the dropper and a drop touches the cheek, one small natural motion. Duration 2s. Ambient: quiet bathroom room tone."
+
+Texture or swatch:
+Image: "A pump of light serum on a woman's fingertips over the back of her other hand, natural skin texture and a little shine, soft daylight from a window, shot on iPhone, macro but natural, slight background softness, no studio gloss."
+Video: "Static camera. She rubs the serum in with two fingers, it absorbs. One motion. Duration 2s. Ambient: quiet room tone."
+
+Pour or mix (powders, drinks, supplements):
+Image: "[PRODUCT: use the uploaded product reference image exactly. Standing on a kitchen counter beside a clear glass of water.] Morning kitchen, natural window light, a spoon and a real mug nearby, shot on iPhone, natural light."
+Video: "Static camera. A hand stirs the scoop into the glass, one natural motion. Duration 2.5s. Ambient: kitchen room tone."
+
+Lifestyle or context:
+Image: "[PRODUCT: use the uploaded product reference image exactly. Being dropped into an open tote bag on a cluttered entryway table.] Natural daylight from a doorway, keys and a phone on the table, shot on iPhone, candid, deep phone focus, no bokeh."
+Video: "Static camera. A hand sets the product into the bag, one motion. Duration 2s. Ambient: quiet room tone."
+
+Result or experiential close-up:
+Image: "A woman's face in soft morning window light, calm and natural, visible pores and real skin texture, no retouching, shot on iPhone front camera, deep focus. She looks lightly refreshed, not dramatically transformed."
+Video: "Static camera. A small natural smile and a blink. Duration 2s. Ambient: quiet room tone."
+Compliance note when generating results b-roll: keep it experiential and subtle. No exaggerated before/after, no medical transformation, nothing the brief cannot substantiate.
+
+B-ROLL RULES
+Short: 1 to 2.5 seconds each. L-cut: voice keeps running under it. Relevant: it must show what she is saying, never filler. Matched: same natural light and phone look as the face clips, so it does not feel imported. Product-accurate: any product b-roll uses the uploaded reference image. Honest: no fake UI, no fabricated reviews, no deceptive before/after.
+
 DEFINITIONS (reference)
 Punch-in: a hard cut to a slightly tighter crop of the same shot on an emphasis word, adds energy. Not a slow zoom.
 J-cut: the audio of the next clip starts before its video, audio leads the picture.
@@ -66,7 +131,7 @@ B-roll: supporting footage (product, hands, texture) cut over the voice.
 Dead air: flat empty silence at a clip head or tail, or a long stall. Cut it. Natural breaths are not dead air, keep them.
 
 KILL LIST (NEVER RECOMMEND)
-Whoosh, ding, sparkle, boom, or meme SFX. Heavy transition presets, spins, flashes, glitches. Filters or color grading. Music loud enough to compete with the voice. Zoom for its own sake or slow cinematic pushes. Machine-cutting every breath out. Anything that makes the ad look like a produced commercial instead of a real person's video.
+Whoosh, ding, sparkle, boom, or meme SFX. Heavy transition presets, spins, flashes, glitches. Filters or color grading. Music loud enough to compete with the voice. Zoom for its own sake or slow cinematic pushes. Machine-cutting every breath out. Anything that makes the ad look like a produced commercial instead of a real person's video. B-roll over the hook, over the emotional peak line, or over the CTA. Wall-to-wall b-roll that hides the face for most of the ad. Over-polished cinematic stock that clashes with the phone look. Filler b-roll that does not show what she is saying. Faked UI, fabricated review screenshots, or exaggerated before-and-after result footage.
 
 OUTPUT RULES
 Plain text. No bold (no asterisks). No em dashes (use commas, colons, or restructure). Copy-paste ready. Flag production issues inline, do not invent creative.
