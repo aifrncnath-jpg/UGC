@@ -3,35 +3,42 @@
 sfxfolder_downloader.py
 =======================
 
-A polite, dependency-free downloader for the FREE assets published on
-https://sfxfolder.com (sound effects, background music, fonts, LUTs).
+A polite, dependency-free downloader for the FREE assets on
+https://sfxfolder.com (sound effects, background music, etc.).
 
-How it works (intended, respectful use only):
-  1. Reads the site's public sitemap.xml to enumerate the item pages the
-     site itself publishes for indexing.
-  2. For each item page, extracts the direct file URL from the page's
-     Schema.org JSON-LD block (the AudioObject/VideoObject "contentUrl").
-     These files live in a public storage bucket and are the exact files
-     the site streams to its own player.
-  3. Downloads each file into a per-category folder, skipping anything
-     already downloaded (resumable) and writing a manifest.csv.
+It fetches the site's own public catalog listing, organizes everything into
+folders by theme (e.g. WHOOSH, RISER, IMPACTS, SFX_MEMES), and downloads the
+audio files - skipping anything you already have (resumable) and writing a
+manifest.csv.
 
-It deliberately does NOT touch the site's backend API / database, and it
-rate-limits itself so it behaves like a considerate visitor.
+HOW IT FINDS THE SOUNDS
+-----------------------
+It calls the site's public listing endpoint (`/api/resources`), the same one
+the website itself uses when you scroll the page, and reads each item's public
+`download_url`. No login and no API keys are involved.
 
-NOTE ON LICENSING / ETIQUETTE:
-  SFXFolder states its assets are free for personal and commercial use with
-  no attribution required. Please still read their Terms of Service, keep the
-  request rate gentle (the defaults here are conservative), and only download
-  what you'll actually use. The site is ad-funded; be a good citizen.
+PLEASE BE CONSIDERATE
+---------------------
+* SFXFolder's assets are free for personal and commercial use with no
+  attribution required - but please read their Terms of Service:
+  https://sfxfolder.com/terms
+* NOTE: the site's robots.txt marks `/api/` as Disallow. This tool uses that
+  endpoint (gently: only a handful of listing requests) to enumerate items.
+  If you'd rather not, don't run it. The listing is a tiny load; the actual
+  audio files come from a public storage bucket that isn't disallowed.
+* Keep the pacing gentle (defaults are conservative) and only grab what you
+  will actually use. The site is ad-funded; be a good citizen.
 
-Usage:
-  python3 sfxfolder_downloader.py                      # sound-effects only
-  python3 sfxfolder_downloader.py --categories sound-effects bgm
-  python3 sfxfolder_downloader.py --out ./sfx --delay 1.5 --limit 10
-  python3 sfxfolder_downloader.py --dry-run            # list, don't download
+USAGE
+-----
+  python3 sfxfolder_downloader.py --list-folders        # see the themes + counts
+  python3 sfxfolder_downloader.py                        # download ALL sound effects
+  python3 sfxfolder_downloader.py --folder WHOOSH        # only folders matching "WHOOSH"
+  python3 sfxfolder_downloader.py --exclude SFX_MEMES    # everything except memes
+  python3 sfxfolder_downloader.py --match minecraft      # fuzzy match on tag/name
+  python3 sfxfolder_downloader.py --dry-run --limit 20   # preview, don't download
 
-No third-party packages required (uses only the Python standard library).
+No third-party packages required (Python standard library only).
 """
 
 from __future__ import annotations
@@ -46,395 +53,227 @@ import time
 import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from html import unescape
 
 BASE = "https://sfxfolder.com"
-SITEMAP_URL = f"{BASE}/sitemap.xml"
-USER_AGENT = (
-    "Mozilla/5.0 (compatible; sfxfolder-downloader/1.0; "
-    "+personal archive of free assets)"
-)
-
-# Categories that map to downloadable resource pages on the site.
-KNOWN_CATEGORIES = ["sound-effects", "bgm", "font", "lut"]
-
-# Matches a direct public file URL inside the JSON-LD contentUrl field.
-CONTENT_URL_RE = re.compile(
-    r'"contentUrl"\s*:\s*"(?P<url>https://[^"]+?/storage/v1/object/public/resources/[^"]+?)"'
-)
-# Fallback: any public resources file URL on the page (used only if JSON-LD
-# is missing; we then prefer the one whose filename best matches the slug).
-ANY_FILE_RE = re.compile(
-    r'https://[a-z0-9]+\.supabase\.co/storage/v1/object/public/resources/'
-    r'[A-Za-z0-9/_%.\-]+?\.(?:mp3|wav|ogg|m4a|flac|aac|zip|ttf|otf|woff2?|cube|png|jpg|jpeg)',
-    re.IGNORECASE,
-)
-# JSON-LD "name" of the primary object, for nicer filenames.
-NAME_RE = re.compile(r'"name"\s*:\s*"(?P<name>[^"]{1,120})"')
-# JSON-LD "keywords" holds the item's tags, e.g. "sfx, meme, minecraft".
-KEYWORDS_RE = re.compile(r'"keywords"\s*:\s*"(?P<kw>[^"]*)"')
-# <meta name="keywords"> carries the slug words + tags as a broader signal.
-META_KEYWORDS_RE = re.compile(r'name="keywords"\s+content="(?P<kw>[^"]*)"')
+API = f"{BASE}/api/resources"
+USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36"
+PAGE_SIZE = 200  # items per listing request
 
 
 # --------------------------------------------------------------------------- #
 # HTTP helpers
 # --------------------------------------------------------------------------- #
-def http_get(url: str, timeout: int = 40, retries: int = 3, backoff: float = 2.0) -> bytes:
-    """GET a URL with retries and exponential backoff. Returns raw bytes."""
-    last_err = None
+def _request(url: str, timeout: int = 45, retries: int = 3, backoff: float = 2.0) -> bytes:
+    last = None
     for attempt in range(1, retries + 1):
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+            req = urllib.request.Request(
+                url, headers={"User-Agent": USER_AGENT, "Referer": f"{BASE}/sound-effects"}
+            )
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 return resp.read()
         except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError) as e:
-            last_err = e
+            last = e
             if attempt < retries:
                 time.sleep(backoff * attempt)
-    raise RuntimeError(f"GET failed after {retries} attempts: {url} ({last_err})")
+    raise RuntimeError(f"request failed after {retries} tries: {url} ({last})")
 
 
-def http_get_text(url: str, **kw) -> str:
-    return http_get(url, **kw).decode("utf-8", "ignore")
+def get_json(url: str):
+    return json.loads(_request(url).decode("utf-8", "ignore"))
 
 
 # --------------------------------------------------------------------------- #
-# Enumeration
+# Catalog enumeration (via the site's public listing endpoint)
 # --------------------------------------------------------------------------- #
-def category_of(url: str) -> str:
-    return url.split("sfxfolder.com/", 1)[-1].split("/", 1)[0]
-
-
-def is_item_page(url: str) -> bool:
-    # Item pages look like /<category>/<slug>; category landing pages don't
-    # have the trailing slug segment.
-    parts = url.rstrip("/").split("sfxfolder.com/", 1)[-1].split("/")
-    return len(parts) >= 2 and parts[0] in KNOWN_CATEGORIES and parts[1] != ""
-
-
-def get_item_pages(categories: list[str]) -> list[str]:
-    """Parse sitemap.xml and return item page URLs for the wanted categories."""
-    xml = http_get_text(SITEMAP_URL)
-    locs = re.findall(r"<loc>\s*([^<\s]+)\s*</loc>", xml)
-    items = []
-    seen = set()
-    for u in locs:
-        u = unescape(u).strip()
-        if not u.startswith(f"{BASE}/"):
-            continue
-        if not is_item_page(u):
-            continue
-        if category_of(u) not in categories:
-            continue
-        if u not in seen:
-            seen.add(u)
-            items.append(u)
+def fetch_catalog(category: str, delay: float) -> list[dict]:
+    """Page through the public listing endpoint and return normalized items."""
+    items, offset = [], 0
+    while True:
+        url = f"{API}?categorySlug={category}&limit={PAGE_SIZE}&offset={offset}&sort=newest"
+        batch = get_json(url)
+        if not batch:
+            break
+        for raw in batch:
+            items.append(normalize(raw))
+        offset += PAGE_SIZE
+        if len(batch) < PAGE_SIZE:
+            break
+        if delay:
+            time.sleep(delay)
     return items
 
 
+def normalize(raw: dict) -> dict:
+    folder = (raw.get("folder") or raw.get("folders") or {}).get("name") or "UNSORTED"
+    return {
+        "name": raw.get("name") or raw.get("slug") or "untitled",
+        "slug": raw.get("slug") or "",
+        "folder": folder,
+        "tags": [t.lower() for t in (raw.get("tags") or [])],
+        "download_url": raw.get("download_url") or raw.get("downloadUrl"),
+        "is_premium": bool(raw.get("is_premium") or raw.get("isPremium")),
+        "format": (raw.get("file_format") or raw.get("fileFormat") or "").lower(),
+        "size": raw.get("file_size") or raw.get("fileSize") or 0,
+    }
+
+
 # --------------------------------------------------------------------------- #
-# File-URL extraction from an item page
+# Filtering
 # --------------------------------------------------------------------------- #
-def slugify(text: str) -> str:
-    text = text.strip().lower()
-    text = re.sub(r"[^a-z0-9]+", "-", text)
-    return text.strip("-") or "untitled"
+_STOP = {"free", "sound", "effects", "effect", "download", "sfx", "the", "and", "for"}
 
 
-def pick_own_file(html: str, slug: str) -> str | None:
-    """
-    Return the direct file URL that belongs to THIS item page.
-
-    Preference order:
-      1. The JSON-LD contentUrl (canonical, what the site's player uses).
-      2. If several JSON-LD contentUrls exist, the one whose filename best
-         resembles the page slug.
-      3. Fallback: among all public file URLs on the page, the best slug match.
-    """
-    jsonld_urls = CONTENT_URL_RE.findall(html)
-    if jsonld_urls:
-        if len(jsonld_urls) == 1:
-            return jsonld_urls[0]
-        return best_slug_match(jsonld_urls, slug) or jsonld_urls[0]
-
-    all_urls = list(dict.fromkeys(ANY_FILE_RE.findall(html)))
-    if not all_urls:
-        return None
-    return best_slug_match(all_urls, slug) or all_urls[0]
-
-
-def best_slug_match(urls: list[str], slug: str) -> str | None:
-    """Choose the URL whose filename shares the most tokens with the slug."""
-    slug_tokens = set(t for t in slug.split("-") if len(t) > 2)
-    best, best_score = None, -1
-    for u in urls:
-        fname = u.rsplit("/", 1)[-1].lower()
-        score = sum(1 for t in slug_tokens if t in fname)
-        if score > best_score:
-            best, best_score = u, score
-    return best if best_score > 0 else None
-
-
-def extract_title(html: str, file_url: str | None = None) -> str | None:
-    """Prefer the name of the AudioObject/primary asset over the site name.
-
-    The JSON-LD contains several "name" fields (Organization, CollectionPage,
-    the asset itself). We pick the "name" that sits closest to the file's
-    contentUrl, which is the asset's own name.
-    """
-    if file_url:
-        idx = html.find(file_url)
-        if idx != -1:
-            window = html[max(0, idx - 600): idx + 200]
-            names = NAME_RE.findall(window)
-            for n in names:
-                cleaned = unescape(n).strip()
-                if cleaned and cleaned.lower() != "sfxfolder":
-                    return cleaned
-    # Fallback: og:title / <title>, stripped of the site suffix.
-    m = re.search(r'<title>([^<]+)</title>', html)
-    if m:
-        return unescape(m.group(1)).split("|")[0].split("—")[0].strip() or None
-    return None
-
-
-# Generic slug words that add no thematic value when matching.
-_STOPWORDS = {"free", "sound", "effects", "effect", "download", "sfx",
-              "for", "video", "editing", "and", "the"}
-
-
-def extract_tags(html: str) -> list[str]:
-    """Collect the item's thematic tags from the JSON-LD keywords field."""
-    tags = set()
-    m = KEYWORDS_RE.search(html)
-    if m:
-        for t in m.group("kw").split(","):
-            t = t.strip().lower()
-            if t:
-                tags.add(t)
-    return sorted(tags)
-
-
-def match_terms(item: dict, terms: list[str], strict_tag: bool) -> bool:
-    """Return True if the item matches any of the search terms.
-
-    strict_tag=True  -> match only against the item's tags.
-    strict_tag=False -> also match against slug words and title (fuzzy).
-    """
-    if not terms:
-        return True
-    tags = set(item.get("tags") or [])
-    haystack = set(tags)
-    if not strict_tag:
-        slug_words = set(w for w in (item.get("slug") or "").split("-")
-                         if w and w not in _STOPWORDS)
-        title_words = set(re.findall(r"[a-z0-9]+", (item.get("title") or "").lower()))
-        haystack |= slug_words | (title_words - _STOPWORDS)
-    for term in terms:
-        term = term.strip().lower()
-        if strict_tag:
-            if term in tags:
-                return True
-        else:
-            # substring match against any token in the haystack, or the joined slug
-            if any(term in h for h in haystack) or term in (item.get("slug") or ""):
-                return True
-    return False
+def keep(item: dict, args) -> bool:
+    if args.free_only and item["is_premium"]:
+        return False
+    fname = item["folder"].lower()
+    if args.folder and not any(f.lower() in fname for f in args.folder):
+        return False
+    if args.exclude and any(x.lower() in fname for x in args.exclude):
+        return False
+    if args.tag:
+        if not any(t in item["tags"] for t in (x.lower() for x in args.tag)):
+            return False
+    if args.match:
+        hay = set(item["tags"]) | {item["slug"].lower(), item["folder"].lower()}
+        words = set(re.findall(r"[a-z0-9]+", item["name"].lower())) - _STOP
+        hay |= words
+        terms = [x.lower() for x in args.match]
+        if not any(any(t in h for h in hay) or t in item["slug"].lower() for t in terms):
+            return False
+    return True
 
 
 # --------------------------------------------------------------------------- #
 # Downloading
 # --------------------------------------------------------------------------- #
-def safe_filename(slug: str, file_url: str) -> str:
-    """Build a clean, unique filename: <slug><original-extension>."""
-    ext = os.path.splitext(file_url.split("?", 1)[0])[1].lower() or ".bin"
-    base = slugify(slug)
-    return f"{base}{ext}"
+def slugify(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", text.strip().lower()).strip("-") or "untitled"
 
 
-def download_file(file_url: str, dest_path: str, delay: float) -> tuple[str, str]:
-    """Download one file to dest_path. Returns (status, detail)."""
-    if os.path.exists(dest_path) and os.path.getsize(dest_path) > 0:
-        return ("skip", "already exists")
-    tmp = dest_path + ".part"
+def safe_name(item: dict) -> str:
+    ext = os.path.splitext((item["download_url"] or "").split("?")[0])[1].lower()
+    if not ext:
+        ext = "." + (item["format"] or "bin")
+    return slugify(item["slug"] or item["name"]) + ext
+
+
+def sanitize_folder(name: str) -> str:
+    return re.sub(r"[^A-Za-z0-9_&+\- ]+", "", name).strip().replace(" ", "_") or "UNSORTED"
+
+
+def download_one(item: dict, out_root: str, group: bool, delay: float) -> dict:
+    sub = sanitize_folder(item["folder"]) if group else ""
+    folder = os.path.join(out_root, "sound-effects", sub) if sub else os.path.join(out_root, "sound-effects")
+    os.makedirs(folder, exist_ok=True)
+    dest = os.path.join(folder, safe_name(item))
+    rel = os.path.relpath(dest, out_root)
+    if os.path.exists(dest) and os.path.getsize(dest) > 0:
+        return {**item, "saved": rel, "status": "skip"}
+    tmp = dest + ".part"
     try:
-        data = http_get(file_url)
+        data = _request(item["download_url"])
         with open(tmp, "wb") as f:
             f.write(data)
-        os.replace(tmp, dest_path)
+        os.replace(tmp, dest)
         if delay:
             time.sleep(delay)
-        return ("ok", f"{len(data)} bytes")
+        return {**item, "saved": rel, "status": "ok", "bytes": len(data)}
     except Exception as e:  # noqa: BLE001
         if os.path.exists(tmp):
             try:
                 os.remove(tmp)
             except OSError:
                 pass
-        return ("error", str(e))
+        return {**item, "saved": rel, "status": "error", "detail": str(e)}
 
 
 # --------------------------------------------------------------------------- #
-# Orchestration
+# Main
 # --------------------------------------------------------------------------- #
-def resolve_item(page_url: str, delay: float) -> dict:
-    """Fetch an item page and resolve its download info."""
-    slug = page_url.rstrip("/").rsplit("/", 1)[-1]
-    category = category_of(page_url)
-    try:
-        html = http_get_text(page_url)
-    except Exception as e:  # noqa: BLE001
-        return {"page": page_url, "slug": slug, "category": category,
-                "file_url": None, "title": None, "error": str(e)}
-    if delay:
-        time.sleep(delay)
-    file_url = pick_own_file(html, slug)
-    title = extract_title(html, file_url)
-    tags = extract_tags(html)
-    return {"page": page_url, "slug": slug, "category": category,
-            "file_url": file_url, "title": title, "tags": tags, "error": None}
+def human(n: int) -> str:
+    for unit in ("B", "KB", "MB", "GB"):
+        if n < 1024:
+            return f"{n:.1f}{unit}"
+        n /= 1024
+    return f"{n:.1f}TB"
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(
-        description="Download free assets from sfxfolder.com into per-category folders."
-    )
-    ap.add_argument("--categories", nargs="+", default=["sound-effects"],
-                    choices=KNOWN_CATEGORIES,
-                    help="Which categories to download (default: sound-effects).")
-    ap.add_argument("--out", default="./downloads",
-                    help="Output directory (default: ./downloads).")
-    ap.add_argument("--delay", type=float, default=1.0,
-                    help="Seconds to pause between requests (default: 1.0). Be polite.")
-    ap.add_argument("--workers", type=int, default=2,
-                    help="Concurrent workers (default: 2). Keep this low.")
-    ap.add_argument("--limit", type=int, default=0,
-                    help="Only process the first N items (0 = all). Great for testing.")
-    ap.add_argument("--dry-run", action="store_true",
-                    help="Resolve and list files but do not download.")
-    ap.add_argument("--tag", nargs="+", default=None, metavar="TAG",
-                    help="Only download items whose tags include any of these "
-                         "(strict tag match, e.g. --tag meme minecraft).")
-    ap.add_argument("--match", nargs="+", default=None, metavar="TERM",
-                    help="Only download items whose tag/slug/title contains any "
-                         "of these terms (fuzzy, e.g. --match transition whoosh).")
-    ap.add_argument("--subfolder", action="store_true",
-                    help="When filtering, save into downloads/<category>/<filter>/ "
-                         "so each themed group gets its own folder.")
-    ap.add_argument("--list-tags", action="store_true",
-                    help="Scan items and print the available tags with counts, "
-                         "then exit (no downloading).")
+    ap = argparse.ArgumentParser(description="Download free assets from sfxfolder.com, organized by theme folder.")
+    ap.add_argument("--category", default="sound-effects", help="Catalog category (default: sound-effects).")
+    ap.add_argument("--out", default="./downloads", help="Output directory (default: ./downloads).")
+    ap.add_argument("--delay", type=float, default=0.6, help="Seconds to pause between requests (default: 0.6).")
+    ap.add_argument("--workers", type=int, default=3, help="Concurrent download workers (default: 3).")
+    ap.add_argument("--limit", type=int, default=0, help="Only process the first N items (0 = all).")
+    ap.add_argument("--folder", nargs="+", help="Only folders whose name contains any of these (e.g. --folder WHOOSH RISER).")
+    ap.add_argument("--exclude", nargs="+", help="Skip folders whose name contains any of these (e.g. --exclude SFX_MEMES).")
+    ap.add_argument("--tag", nargs="+", help="Strict tag filter (e.g. --tag meme).")
+    ap.add_argument("--match", nargs="+", help="Fuzzy filter on tag/name/slug/folder (e.g. --match minecraft).")
+    ap.add_argument("--free-only", dest="free_only", action="store_true", default=True, help="Only free items (default on).")
+    ap.add_argument("--no-group", dest="group", action="store_false", default=True, help="Do NOT split into theme subfolders.")
+    ap.add_argument("--list-folders", action="store_true", help="List theme folders with counts/sizes, then exit.")
+    ap.add_argument("--dry-run", action="store_true", help="List what would download, without downloading.")
     args = ap.parse_args()
 
-    print(f"[*] Fetching sitemap and enumerating categories: {', '.join(args.categories)}")
-    pages = get_item_pages(args.categories)
+    print(f"[*] Fetching catalog listing for '{args.category}' ...")
+    catalog = fetch_catalog(args.category, args.delay)
+    print(f"[*] Catalog has {len(catalog)} items.")
+
+    if args.list_folders:
+        from collections import defaultdict
+        agg = defaultdict(lambda: [0, 0])
+        for it in catalog:
+            agg[it["folder"]][0] += 1
+            agg[it["folder"]][1] += it["size"]
+        print(f"\n[*] Theme folders (use --folder NAME to pick one):\n")
+        for f, (n, s) in sorted(agg.items(), key=lambda x: -x[1][1]):
+            print(f"    {n:4}  {human(s):>9}  {f}")
+        total = sum(it["size"] for it in catalog)
+        print(f"\n    TOTAL: {len(catalog)} items, {human(total)}")
+        return 0
+
+    # filter
+    items = [it for it in catalog if it["download_url"] and keep(it, args)]
     if args.limit:
-        pages = pages[: args.limit]
-    print(f"[*] Found {len(pages)} item page(s) to process.")
-    if not pages:
-        print("[!] Nothing to do.")
+        items = items[: args.limit]
+    sel_size = sum(it["size"] for it in items)
+    print(f"[*] {len(items)} item(s) selected  (~{human(sel_size)}).")
+    if not items:
+        print("[!] Nothing matched your filters. Try --list-folders to see options.")
         return 0
 
     os.makedirs(args.out, exist_ok=True)
-    manifest_path = os.path.join(args.out, "manifest.csv")
-
-    # --- Phase 1: resolve file URLs from item pages -----------------------
-    print("[*] Phase 1/2: resolving direct file URLs from item pages...")
-    resolved = []
-    with ThreadPoolExecutor(max_workers=args.workers) as ex:
-        futs = {ex.submit(resolve_item, p, args.delay): p for p in pages}
-        for i, fut in enumerate(as_completed(futs), 1):
-            info = fut.result()
-            resolved.append(info)
-            state = "OK " if info["file_url"] else "MISS"
-            print(f"    [{i}/{len(pages)}] {state} {info['slug']}")
-
-    ok = [r for r in resolved if r["file_url"]]
-    miss = [r for r in resolved if not r["file_url"]]
-    print(f"[*] Resolved {len(ok)} file(s); {len(miss)} unresolved.")
-
-    # --- Optional: just list the available tags and exit ------------------
-    if args.list_tags:
-        from collections import Counter
-        tc = Counter()
-        for r in resolved:
-            for t in (r.get("tags") or []):
-                tc[t] += 1
-        print(f"\n[*] Tags available across {len(resolved)} items "
-              f"(use with --tag; use --match for slug/title words too):\n")
-        for t, c in tc.most_common():
-            print(f"    {c:4}  {t}")
-        return 0
-
-    # --- Optional: filter to a themed group -------------------------------
-    terms = args.tag or args.match
-    strict = args.tag is not None
-    label = None
-    if terms:
-        label = slugify("-".join(terms))
-        before = len(ok)
-        ok = [r for r in ok if match_terms(r, terms, strict)]
-        mode = "tag" if strict else "match"
-        print(f"[*] Filter ({mode}={terms}): {len(ok)} of {before} items match.")
-        if not ok:
-            print("[!] No items matched. Try --list-tags to see options, "
-                  "or use --match for fuzzy slug/title matching.")
-            return 0
-
-    # --- Phase 2: download ------------------------------------------------
-    # When filtering with --subfolder, group the results under the filter name.
-    sub = label if (label and args.subfolder) else None
-
-    def rel_dir(category: str) -> str:
-        return os.path.join(category, sub) if sub else category
-
     rows = []
+
     if args.dry_run:
-        print("[*] Dry run - not downloading. Files that WOULD be fetched:")
-        for r in ok:
-            fname = safe_filename(r["slug"], r["file_url"])
-            rel = os.path.join(rel_dir(r["category"]), fname)
-            print(f"    {rel}  <-  {r['file_url']}")
-            rows.append({**r, "saved_path": rel, "status": "dry-run"})
+        print("[*] Dry run - showing what WOULD download:")
+        for it in items:
+            sub = sanitize_folder(it["folder"]) if args.group else ""
+            print(f"    sound-effects/{sub + '/' if sub else ''}{safe_name(it)}")
+            rows.append({**it, "saved": "", "status": "dry-run"})
     else:
-        print("[*] Phase 2/2: downloading files...")
+        print(f"[*] Downloading with {args.workers} workers (delay {args.delay}s)...")
         counts = {"ok": 0, "skip": 0, "error": 0}
-
-        def worker(r: dict) -> dict:
-            cat_dir = os.path.join(args.out, rel_dir(r["category"]))
-            os.makedirs(cat_dir, exist_ok=True)
-            fname = safe_filename(r["slug"], r["file_url"])
-            dest = os.path.join(cat_dir, fname)
-            status, detail = download_file(r["file_url"], dest, args.delay)
-            return {**r, "saved_path": os.path.relpath(dest, args.out),
-                    "status": status, "detail": detail}
-
         with ThreadPoolExecutor(max_workers=args.workers) as ex:
-            futs = {ex.submit(worker, r): r for r in ok}
+            futs = [ex.submit(download_one, it, args.out, args.group, args.delay) for it in items]
             for i, fut in enumerate(as_completed(futs), 1):
-                res = fut.result()
-                rows.append(res)
-                counts[res["status"]] = counts.get(res["status"], 0) + 1
-                print(f"    [{i}/{len(ok)}] {res['status'].upper():5} "
-                      f"{res['saved_path']}  ({res.get('detail','')})")
-        print(f"[*] Done. downloaded={counts.get('ok',0)} "
-              f"skipped={counts.get('skip',0)} errors={counts.get('error',0)}")
+                r = fut.result()
+                rows.append(r)
+                counts[r["status"]] = counts.get(r["status"], 0) + 1
+                extra = human(r["bytes"]) if r.get("bytes") else r.get("detail", "")
+                print(f"    [{i}/{len(items)}] {r['status'].upper():5} {r['saved']}  {extra}")
+        print(f"[*] Done. downloaded={counts.get('ok',0)} skipped={counts.get('skip',0)} errors={counts.get('error',0)}")
 
-    # include misses in manifest for transparency
-    for r in miss:
-        rows.append({**r, "saved_path": "", "status": "unresolved"})
-
-    # --- Write manifest ---------------------------------------------------
-    with open(manifest_path, "w", newline="", encoding="utf-8") as f:
+    manifest = os.path.join(args.out, "manifest.csv")
+    with open(manifest, "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
-        w.writerow(["category", "slug", "title", "tags", "page", "file_url", "saved_path", "status"])
+        w.writerow(["folder", "name", "slug", "tags", "format", "size", "download_url", "saved_path", "status"])
         for r in rows:
-            w.writerow([r.get("category", ""), r.get("slug", ""), r.get("title", "") or "",
-                        ", ".join(r.get("tags") or []),
-                        r.get("page", ""), r.get("file_url", "") or "",
-                        r.get("saved_path", ""), r.get("status", "")])
-    print(f"[*] Manifest written to {manifest_path}")
+            w.writerow([r["folder"], r["name"], r["slug"], ", ".join(r["tags"]), r["format"],
+                        r["size"], r["download_url"], r.get("saved", ""), r["status"]])
+    print(f"[*] Manifest written to {manifest}")
     return 0
 
 
