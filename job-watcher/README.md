@@ -1,16 +1,32 @@
-# 🔔 OnlineJobs.ph New-Job Watcher — Beginner's Guide
+# 🔔 OnlineJobs.ph AI-Video Job Watcher — Beginner's Guide
 
-Watches [OnlineJobs.ph](https://www.onlinejobs.ph) for **new job posts** matching
-your keyword (like **"ai video editor"**) and alerts you when fresh ones show up
-— so you can be one of the first to apply. 🚀
+Watches [OnlineJobs.ph](https://www.onlinejobs.ph) for **new AI video-related job
+posts** (AI video editor, AI video creation, UGC, VSL, and more) and pings your
+**Discord** the moment a matching post appears — so you can be first to apply. 🚀
 
 **No coding knowledge needed** — follow the steps in order. 🙂
 
-> ℹ️ It reads the site's **public** job-search page (no login). It remembers what
-> it has already seen, so it only alerts you about *new* posts. It checks every
-> 10 seconds by default — fast enough to catch posts within seconds, while
-> staying within the site's requested crawl delay. Review OnlineJobs.ph's Terms
-> of Service too.
+> ✅ **AI-only:** it only alerts you about posts whose title mentions **AI**.
+> Non-AI posts are ignored, so you won't get spammed with generic video-editor
+> jobs.
+>
+> ℹ️ It reads the site's **public** job pages (no login), remembers what it has
+> already seen (so only *new* posts alert you), and checks politely (within the
+> site's requested crawl delay). Review OnlineJobs.ph's Terms of Service too.
+
+---
+
+## What it watches
+
+By default it searches these terms and alerts on any **new + AI** result:
+
+`ai video editor`, `ai video`, `ai video generation`, `ai video creation`,
+`ai video specialist`, `video editor`, `video specialist`, `video producer`,
+`video content creator`, `short form video`, `faceless video`, `ugc`,
+`ugc video editor`, `vsl`, `video sales letter`, `motion graphics`.
+
+Because of the AI-only filter, a generic "Video Editor" post is skipped, but
+"**AI** Video Editor" or "Video Editor — **AI**-Native" gets pushed to you.
 
 ---
 
@@ -21,129 +37,99 @@ your keyword (like **"ai video editor"**) and alerts you when fresh ones show up
 2. Open the file, tick ⚠️ **"Add python.exe to PATH"**, then **"Install Now"**.
 
 ### 🍎 Mac
-1. Go to **https://www.python.org/downloads/**, click **"Download Python"**.
-2. Open the file and click through the installer.
+1. Go to **https://www.python.org/downloads/**, click **"Download Python"**, open it, and click through the installer.
 
 ---
 
 ## Part 2 — Get the tool (one time)
-1. Go to **https://github.com/aifrncnath-jpg/UGC** → green **`<> Code`** →
-   **"Download ZIP"** → unzip it.
+1. Go to **https://github.com/aifrncnath-jpg/UGC** → green **`<> Code`** → **"Download ZIP"** → unzip.
 2. Open the **`job-watcher`** folder. You'll see `onlinejobs_watcher.py`.
 
 ---
 
-## Part 3 — Run it
+## Part 3 — Set up Discord alerts (recommended)
 
-### Step 1 — Open the terminal
-- 🪟 **Windows:** Start menu → type **`cmd`** → Enter.
-- 🍎 **Mac:** **`Cmd + Space`** → type **`Terminal`** → Enter.
+**1. Create a webhook (one time):**
+- Open Discord → a server you own (make a free private one: **+ → Create My Own**).
+- **Server Settings → Integrations → Webhooks → New Webhook → Copy Webhook URL**.
 
-### Step 2 — Go into the folder
-Type `cd ` (with a space), then **drag the `job-watcher` folder** into the
-terminal and press **Enter**.
+**2. Open the terminal** and go into the folder:
+- 🪟 Windows: Start → `cmd`. 🍎 Mac: `Cmd+Space` → `Terminal`.
+- Type `cd ` (with a space), drag the `job-watcher` folder in, press **Enter**.
 
-### Step 3 — Start watching
-
-**Keep it running** (checks every 10 seconds; leave this window open):
-```
-python onlinejobs_watcher.py --keyword "video editor" --must-include ai
-```
-- `--keyword` is what you search for on the site.
-- `--must-include ai` means only show posts with the word **ai** in the title.
-  (Leave it off to get *all* video editor posts.)
-
-The **first run** just quietly records the jobs currently posted (your
-"baseline"). After that, it tells you whenever a **new** post appears. 🎯
-
-> 💡 On some Macs, use **`python3`** instead of `python`.
-
-**Check just once and stop** (handy for scheduling — see below):
-```
-python onlinejobs_watcher.py --keyword "video editor" --must-include ai --once
-```
-
----
-
-## 📱 Get real-time alerts on your phone (Discord)
-
-This is the best way to be notified the moment a new job appears — Discord pings
-your phone automatically.
-
-**Step 1 — Create a webhook (one time):**
-1. Open Discord (you need a server you own — make a free private one if needed:
-   **+ → Create My Own**).
-2. Go to **Server Settings → Integrations → Webhooks → New Webhook**.
-3. (Optional) pick which channel it posts to, then click **Copy Webhook URL**.
-
-**Step 2 — Test that it works:**
+**3. Test that Discord works:**
 ```
 python onlinejobs_watcher.py --discord "PASTE_WEBHOOK_URL_HERE" --test-alert
 ```
 You should get a **TEST** message in Discord within a second. ✅
-(If nothing arrives, re-copy the webhook URL — that's almost always the issue.)
 
-**Step 3 — Start watching with Discord alerts:**
+**4. Start watching (this is the main command):**
 ```
-python onlinejobs_watcher.py --keyword "video editor" --must-include ai --discord "PASTE_WEBHOOK_URL_HERE"
+python onlinejobs_watcher.py --discord "PASTE_WEBHOOK_URL_HERE"
 ```
-Now every new post gets sent to Discord (and your phone) automatically.
+That's it! It uses the built-in AI/video keyword list automatically. The first
+run quietly records current posts; after that, every **new AI post** is pushed
+to your Discord. 🎯
 
-### How fast are the alerts?
-By default it now checks **every 10 seconds** — so new posts reach your phone
-within seconds of going live. That's the fastest allowed (the site's rules ask
-for at least a 5-second gap between checks, so 10s stays safely within that).
-
-To check less often (e.g. every 2 minutes), raise the interval:
-```
-python onlinejobs_watcher.py --keyword "video editor" --must-include ai --discord "URL" --interval 120
-```
-
-> There's also `--desktop` for a computer pop-up, and Telegram support
-> (`--telegram-token` + `--telegram-chat`).
+> 💡 On some Macs, use **`python3`** instead of `python`.
 
 ---
 
-## ⏰ Make it run automatically in the background
-
-Instead of leaving a terminal open, run the `--once` version on a schedule:
-
-- **🪟 Windows (Task Scheduler):** Create a Basic Task → trigger "Daily / repeat
-  every 10 minutes" → action "Start a program" → program `python`, arguments:
-  `"C:\path\to\job-watcher\onlinejobs_watcher.py" --keyword "video editor" --must-include ai --once --state "C:\path\to\job-watcher\seen_jobs.json"`
-- **🍎 Mac/Linux (cron):** run `crontab -e` and add:
-  `*/10 * * * * cd /path/to/job-watcher && python3 onlinejobs_watcher.py --keyword "video editor" --must-include ai --once`
+## How fast are the alerts?
+It continuously cycles through all the search terms and pings you within about a
+**minute or two** of a new AI post going live — while staying gentle on the site
+(it waits ~5 seconds between each search, as the site requests).
 
 ---
 
-## 🧰 Options
+## 🧰 Options (all optional)
 
 | Add this | What it does |
 |----------|--------------|
-| `--keyword "video editor"` | What to search for (required-ish; default "video editor") |
-| `--must-include ai`        | Only posts whose **title** contains this word (whole word) |
-| `--once`                   | Check one time and exit (for scheduling) |
-| `--interval 10`            | Seconds between checks when looping (default 10; minimum 10) |
-| `--discord "URL"`          | Send alerts to a Discord webhook |
-| `--test-alert`             | Send one sample alert to your channel(s) to confirm setup, then exit |
-| `--desktop`                | Show a pop-up on your computer |
-| `--notify-existing`        | On the FIRST run, alert on all current matches (default: stay quiet) |
-| `--state seen_jobs.json`   | Where it remembers seen jobs (keep the same path each run) |
+| `--discord "URL"`     | Send alerts to your Discord webhook |
+| `--test-alert`        | Send one sample alert to confirm setup, then exit |
+| `--allow-non-ai`      | Turn OFF the AI-only filter (get all video jobs, not just AI) |
+| `--keywords "a" "b"`  | Use your own search terms instead of the built-in list |
+| `--must-include word` | Require an extra word in the title too (on top of AI) |
+| `--desktop`           | Also show a pop-up on your computer |
+| `--interval 30`       | Seconds between full sweeps (default 10, minimum 10) |
+| `--once`              | Check once and exit (for scheduling) |
+| `--state seen.json`   | Where it remembers seen jobs (keep the same path each run) |
+
+**Examples:**
+```
+# default AI-only watch with Discord
+python onlinejobs_watcher.py --discord "URL"
+
+# your own custom terms
+python onlinejobs_watcher.py --discord "URL" --keywords "ai video editor" "vsl" "ai avatar"
+
+# get ALL video jobs (turn off the AI-only filter)
+python onlinejobs_watcher.py --discord "URL" --allow-non-ai
+```
+
+---
+
+## ⏰ Run it automatically in the background
+Use the `--once` version on a schedule (keep the same `--state` file!):
+- **🪟 Windows (Task Scheduler):** Basic Task → repeat every few minutes → Start a
+  program → `python`, arguments:
+  `"C:\path\to\job-watcher\onlinejobs_watcher.py" --discord "URL" --once --state "C:\path\to\job-watcher\seen_jobs.json"`
+- **🍎 Mac/Linux (cron):** `crontab -e` then:
+  `*/2 * * * * cd /path/to/job-watcher && python3 onlinejobs_watcher.py --discord "URL" --once`
 
 ---
 
 ## ❓ Common problems
-- **"python is not recognized"** → Windows: reinstall and tick "Add python.exe
-  to PATH". Mac: use `python3`.
-- **No alerts ever** → The first run only records a baseline. Alerts start on the
-  *next* new post. To test, add `--notify-existing` once.
-- **Getting the same jobs repeatedly** → Make sure you use the **same `--state`
-  file path** each time so it remembers what it already showed you.
-- **Stop it** → Click the terminal and press **`Ctrl + C`**.
+- **"python is not recognized"** → Windows: reinstall and tick "Add python.exe to PATH". Mac: use `python3`.
+- **No alerts** → First run only records a baseline; alerts start on the next new AI post. Test with `--test-alert`.
+- **Same jobs repeating** → Use the **same `--state` file path** each time.
+- **Want non-AI jobs too** → add `--allow-non-ai`.
+- **Stop it** → click the terminal, press **`Ctrl + C`**.
 
 ---
 
 ## How it works (short version)
-Each check, it loads the public search page for your keyword (newest jobs first),
-reads each post's ID + title + "Posted on" time, compares against the IDs it has
-already seen (saved in `seen_jobs.json`), and alerts you about anything new.
+Each sweep it searches every keyword, merges the results, keeps only posts whose
+title mentions **AI**, and compares their IDs against the ones it has already
+shown you (saved in `seen_jobs.json`). Anything new gets pushed to Discord.

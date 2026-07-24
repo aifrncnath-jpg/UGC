@@ -57,6 +57,34 @@ BASE = "https://www.onlinejobs.ph"
 SEARCH = BASE + "/jobseekers/jobsearch"
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36"
 
+# ----------------------------------------------------------------------------
+# The list of things to watch for. The tool searches the site for EACH of these
+# and alerts you about any new post that matches ANY of them.
+# Feel free to add or remove lines (keep the quotes and the comma).
+# ----------------------------------------------------------------------------
+DEFAULT_KEYWORDS = [
+    "ai video editor",
+    "ai video",
+    "ai video generation",
+    "ai video creation",
+    "ai video specialist",
+    "video editor",
+    "video specialist",
+    "video producer",
+    "video content creator",
+    "short form video",
+    "faceless video",
+    "ugc",
+    "ugc video editor",
+    "vsl",
+    "video sales letter",
+    "motion graphics",
+]
+
+# A post is only pushed to you if its TITLE contains one of these AI signals.
+# (Whole-word match, so "ai" matches "AI" / "AI-powered" but not "Dubai"/"email".)
+DEFAULT_AI_TERMS = ["ai", "artificial intelligence", "genai", "generative ai", "gen ai", "a.i"]
+
 
 # --------------------------------------------------------------------------- #
 # HTTP
@@ -167,10 +195,10 @@ def notify_desktop(title: str, message: str) -> None:
 def send_alerts(new_jobs: list[dict], args) -> None:
     lines = [f"• {j['title']}  [{j['type']}]  — {j['posted']}\n  {j['url']}" for j in new_jobs]
     body = "\n".join(lines)
-    header = f"{len(new_jobs)} new OnlineJobs.ph post(s) for '{args.keyword}'"
+    header = f"{len(new_jobs)} new AI video job post(s) on OnlineJobs.ph"
 
     if args.desktop:
-        notify_desktop("New OnlineJobs.ph post", f"{len(new_jobs)} new for '{args.keyword}'")
+        notify_desktop("New AI video job", f"{len(new_jobs)} new post(s) on OnlineJobs.ph")
     if args.discord:
         # Discord messages cap ~2000 chars; chunk if needed.
         text = f"**{header}**\n{body}"
@@ -186,29 +214,59 @@ def send_alerts(new_jobs: list[dict], args) -> None:
 # One check
 # --------------------------------------------------------------------------- #
 def check_once(args, state: dict) -> list[dict]:
-    params = {"jobkeyword": args.keyword}
-    url = f"{SEARCH}?{urllib.parse.urlencode(params)}"
-    html = http_get(url)
-    jobs = parse_jobs(html)
+    """Search every keyword, merge + de-duplicate, return jobs not seen before."""
+    merged: dict[str, dict] = {}
+    for i, kw in enumerate(args.keywords):
+        url = f"{SEARCH}?{urllib.parse.urlencode({'jobkeyword': kw})}"
+        try:
+            jobs = parse_jobs(http_get(url))
+        except Exception as e:  # noqa: BLE001
+            print(f"    [!] search '{kw}' failed: {e}")
+            jobs = []
+        for j in jobs:
+            if j["id"] in merged:
+                merged[j["id"]]["matched"].add(kw)
+            else:
+                j["matched"] = {kw}
+                merged[j["id"]] = j
+        # Space out requests to respect the site's crawl-delay.
+        if i < len(args.keywords) - 1 and args.req_delay:
+            time.sleep(args.req_delay)
 
+    jobs = list(merged.values())
+
+    def title_has_any(title: str, terms: list[str]) -> bool:
+        t = title.lower()
+        # Whole-word match so "ai" matches "AI"/"AI-powered" but not "Dubai"/"email".
+        return any(re.search(r"\b" + re.escape(term.lower()) + r"\b", t) for term in terms)
+
+    # Mandatory AI requirement (unless --allow-non-ai): title must mention AI.
+    if args.require:
+        jobs = [j for j in jobs if title_has_any(j["title"], args.require)]
+    # Optional extra requirement.
     if args.must_include:
-        # Whole-word match so "ai" doesn't match "Wait"/"email" etc.
-        patterns = [re.compile(r"\b" + re.escape(t.lower()) + r"\b") for t in args.must_include]
-        jobs = [j for j in jobs if any(p.search(j["title"].lower()) for p in patterns)]
+        jobs = [j for j in jobs if title_has_any(j["title"], args.must_include)]
 
     seen = set(state.get("seen_ids", []))
     new_jobs = [j for j in jobs if j["id"] not in seen]
 
-    # Update state with everything currently visible.
-    state["seen_ids"] = sorted(set(seen) | {j["id"] for j in jobs}, key=lambda x: -int(x))[:2000]
+    # Remember everything currently visible so we don't re-alert.
+    state["seen_ids"] = sorted(set(seen) | {j["id"] for j in jobs}, key=lambda x: -int(x))[:5000]
     return new_jobs
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Watch OnlineJobs.ph for new job posts matching a keyword.")
-    ap.add_argument("--keyword", default="video editor", help='Search keyword (default: "video editor").')
-    ap.add_argument("--must-include", nargs="+", help='Extra word(s) that must appear in the title (e.g. --must-include ai).')
-    ap.add_argument("--interval", type=int, default=10, help="Seconds between checks when looping (default: 10). Minimum 10.")
+    ap = argparse.ArgumentParser(description="Watch OnlineJobs.ph for new AI video-related job posts.")
+    ap.add_argument("--keywords", nargs="+", default=None,
+                    help="Search terms to watch (default: the built-in AI/video list). "
+                         'Example: --keywords "ai video editor" "vsl" "ugc".')
+    ap.add_argument("--keyword", default=None, help="Shortcut for a single search term.")
+    ap.add_argument("--must-include", nargs="+", default=None,
+                    help="Extra word(s) the title must also contain (in addition to the AI requirement).")
+    ap.add_argument("--allow-non-ai", action="store_true",
+                    help="Turn OFF the AI-only filter (by default, only posts whose title mentions AI are pushed).")
+    ap.add_argument("--interval", type=int, default=10, help="Seconds between full sweeps (default: 10). Minimum 10.")
+    ap.add_argument("--req-delay", type=int, default=5, help="Seconds between individual searches (default/min: 5, the site's crawl-delay).")
     ap.add_argument("--once", action="store_true", help="Check once and exit (use with Task Scheduler / cron).")
     ap.add_argument("--state", default="./seen_jobs.json", help="State file path (default: ./seen_jobs.json).")
     ap.add_argument("--notify-existing", action="store_true", help="On the very first run, alert on all current matches (default: just record them).")
@@ -220,6 +278,20 @@ def main() -> int:
                     help="Send a sample alert to your configured channels (Discord/desktop/Telegram) and exit. "
                          "Use this to confirm notifications work.")
     args = ap.parse_args()
+
+    # Resolve the keyword list.
+    if args.keywords:
+        pass
+    elif args.keyword:
+        args.keywords = [args.keyword]
+    else:
+        args.keywords = list(DEFAULT_KEYWORDS)
+
+    # The AI requirement: a post's TITLE must mention AI, unless explicitly disabled.
+    args.require = [] if args.allow_non_ai else list(DEFAULT_AI_TERMS)
+
+    if args.req_delay < 5:
+        args.req_delay = 5  # respect the site's 5s crawl-delay
 
     # Show log lines immediately (not buffered), even when output is redirected to a file.
     try:
@@ -259,20 +331,21 @@ def main() -> int:
         save_state(args.state, state)
         stamp = f"[{datetime.now():%Y-%m-%d %H:%M:%S}]"
         if first_run and not args.notify_existing:
-            print(f"{stamp} Baseline recorded: tracking {len(state['seen_ids'])} current post(s) "
-                  f"for '{args.keyword}'. You'll be alerted about NEW ones from now on.")
+            print(f"{stamp} Baseline recorded: tracking {len(state['seen_ids'])} current matching post(s). "
+                  f"You'll be alerted about NEW ones from now on.")
             return
         if new_jobs:
-            print(f"{stamp} {len(new_jobs)} NEW post(s) for '{args.keyword}':")
+            print(f"{stamp} {len(new_jobs)} NEW AI video post(s):")
             for j in new_jobs:
                 print(f"    • {j['title']}  [{j['type']}]  — {j['posted']}")
                 print(f"      {j['url']}")
             send_alerts(new_jobs, args)
         else:
-            print(f"{stamp} No new posts for '{args.keyword}'.")
+            print(f"{stamp} No new posts.")
 
-    print(f"[*] Watching OnlineJobs.ph for '{args.keyword}'"
-          + (f" (title must include: {args.must_include})" if args.must_include else ""))
+    ai_note = "AI-only" if args.require else "AI filter OFF"
+    print(f"[*] Watching OnlineJobs.ph across {len(args.keywords)} search term(s) [{ai_note}]"
+          + (f", title must also include: {args.must_include}" if args.must_include else ""))
     one_pass()
 
     if args.once:
