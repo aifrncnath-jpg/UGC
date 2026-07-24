@@ -24,8 +24,12 @@ something **video-related** (video, editor, UGC, VSL, reels, motion, capcut, veo
 runway, etc.). Because it's a single check, it runs **every ~15 seconds** — so
 you find out almost immediately and can apply first. 🏃
 
-- A generic "Video Editor" post is skipped; "**AI** Video Editor" or
-  "AI Video Ad Editor" gets pushed to you.
+- A generic "Video Editor" post is skipped; "**AI** Video Editor",
+  "AI Video Generation", or "AI Video Creation" gets pushed to you.
+- It also recognizes **AI tool names** as an AI signal — so a post like
+  "Video Editor (Veo 3)" or "Editor — Runway / Kling / HeyGen" is caught even
+  when it never writes the word "AI". (Tools known: Sora, Runway, Veo, Kling,
+  Pika, Luma, HeyGen, Synthesia, Descript, Midjourney, ElevenLabs, and more.)
 - **FAST mode** filters by the job **title**. If you also want to catch posts
   where AI is mentioned only in the *description*, run **DEEP mode**
   (`--mode deep`) — it searches ~16 keywords, so it's thorough but slower

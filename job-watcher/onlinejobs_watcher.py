@@ -83,17 +83,27 @@ DEFAULT_KEYWORDS = [
 
 # A post is only pushed to you if its TITLE contains one of these AI signals.
 # (Whole-word match, so "ai" matches "AI" / "AI-powered" but not "Dubai"/"email".)
-DEFAULT_AI_TERMS = ["ai", "artificial intelligence", "genai", "generative ai", "gen ai", "a.i"]
+# This includes AI-video TOOL names, because naming a tool signals "AI" even when
+# the post never writes the word "AI" (e.g. "Video Editor (Veo 3)").
+DEFAULT_AI_TERMS = [
+    "ai", "a.i", "artificial intelligence", "genai", "generative ai", "gen ai", "generative",
+    # AI video / content tool names:
+    "sora", "runway", "veo", "kling", "pika", "luma", "heygen", "hey gen",
+    "synthesia", "descript", "opusclip", "opus clip", "hedra", "argil", "kaiber",
+    "viggle", "krea", "midjourney", "eleven labs", "elevenlabs", "higgsfield",
+]
 
-# In FAST mode, a post must also look video-related. Generous list so we don't
-# miss AI-video jobs (includes formats + popular AI-video tools).
+# In FAST mode, a post must ALSO look video-related. Generous list of formats,
+# roles and tasks so we don't miss AI-video jobs. (Tool names live in the AI list
+# above, so a title still needs a real video word here to qualify.)
 VIDEO_TERMS = [
     "video", "editor", "editing", "ugc", "vsl", "reel", "reels", "shorts",
     "short-form", "short form", "long-form", "motion graphics", "motion",
     "animation", "animator", "videographer", "capcut", "premiere", "after effects",
-    "veo", "runway", "kling", "sora", "heygen", "higgsfield", "faceless",
-    "b-roll", "broll", "youtube", "tiktok", "content creator", "creative editor",
-    "video ad", "ad creative", "creatives", "footage",
+    "davinci", "resolve", "faceless", "b-roll", "broll", "youtube", "tiktok",
+    "content creator", "creative editor", "video ad", "ad creative", "creatives",
+    "footage", "avatar", "explainer", "promo", "commercial", "vfx", "clips",
+    "lipsync", "lip sync", "voiceover", "voice over", "talking head", "spokesperson",
 ]
 
 
