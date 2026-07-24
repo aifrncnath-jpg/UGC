@@ -1,0 +1,108 @@
+@import 'tailwindcss';
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: #0a0a0f;
+  color: #e7e7ee;
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Thin custom scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2b2b3a transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #2b2b3a;
+  border-radius: 999px;
+}
+
+input[type='range'] {
+  accent-color: #7c5cff;
+}
+
+/* ============================================================
+   Caption entrance / emphasis animations (CapCut-style)
+   Applied to the active word/line via inline animationName.
+   ============================================================ */
+@keyframes cap-pop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes cap-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes cap-slide-up {
+  from {
+    transform: translateY(0.5em);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes cap-bounce {
+  0% {
+    transform: translateY(0.6em) scale(0.9);
+    opacity: 0;
+  }
+  50% {
+    transform: translateY(-0.12em) scale(1.05);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes cap-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-0.06em) rotate(-1deg);
+  }
+  40% {
+    transform: translateX(0.06em) rotate(1deg);
+  }
+  60% {
+    transform: translateX(-0.04em) rotate(-0.6deg);
+  }
+  80% {
+    transform: translateX(0.04em) rotate(0.6deg);
+  }
+}
