@@ -208,7 +208,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="Watch OnlineJobs.ph for new job posts matching a keyword.")
     ap.add_argument("--keyword", default="video editor", help='Search keyword (default: "video editor").')
     ap.add_argument("--must-include", nargs="+", help='Extra word(s) that must appear in the title (e.g. --must-include ai).')
-    ap.add_argument("--interval", type=int, default=600, help="Seconds between checks when looping (default: 600 = 10 min).")
+    ap.add_argument("--interval", type=int, default=10, help="Seconds between checks when looping (default: 10). Minimum 10.")
     ap.add_argument("--once", action="store_true", help="Check once and exit (use with Task Scheduler / cron).")
     ap.add_argument("--state", default="./seen_jobs.json", help="State file path (default: ./seen_jobs.json).")
     ap.add_argument("--notify-existing", action="store_true", help="On the very first run, alert on all current matches (default: just record them).")
@@ -220,6 +220,12 @@ def main() -> int:
                     help="Send a sample alert to your configured channels (Discord/desktop/Telegram) and exit. "
                          "Use this to confirm notifications work.")
     args = ap.parse_args()
+
+    # Show log lines immediately (not buffered), even when output is redirected to a file.
+    try:
+        sys.stdout.reconfigure(line_buffering=True)
+    except Exception:  # noqa: BLE001
+        pass
 
     if args.test_alert:
         sample = [{
@@ -236,9 +242,10 @@ def main() -> int:
               "double-check the webhook URL.")
         return 0
 
-    if args.interval < 60:
-        print("[!] Please keep --interval at 60s or more to be polite to the site. Using 60.")
-        args.interval = 60
+    if args.interval < 10:
+        # The site's robots.txt asks for a 5s crawl-delay; 10s keeps us well within that.
+        print("[!] Minimum interval is 10s (to stay within the site's crawl-delay). Using 10.")
+        args.interval = 10
 
     state = load_state(args.state)
     first_run = not state.get("seen_ids")
@@ -271,7 +278,8 @@ def main() -> int:
     if args.once:
         return 0
 
-    print(f"[*] Checking every {args.interval//60} min. Press Ctrl+C to stop.")
+    pretty = f"{args.interval}s" if args.interval < 60 else f"{args.interval//60} min"
+    print(f"[*] Checking every {pretty}. Press Ctrl+C to stop.")
     try:
         while True:
             time.sleep(args.interval)

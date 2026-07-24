@@ -7,9 +7,9 @@ your keyword (like **"ai video editor"**) and alerts you when fresh ones show up
 **No coding knowledge needed** — follow the steps in order. 🙂
 
 > ℹ️ It reads the site's **public** job-search page (no login). It remembers what
-> it has already seen, so it only alerts you about *new* posts. Please keep the
-> check interval reasonable (default is every 10 minutes) — that's gentle on the
-> site, and it's plenty fast for catching new jobs. Review OnlineJobs.ph's Terms
+> it has already seen, so it only alerts you about *new* posts. It checks every
+> 10 seconds by default — fast enough to catch posts within seconds, while
+> staying within the site's requested crawl delay. Review OnlineJobs.ph's Terms
 > of Service too.
 
 ---
@@ -45,7 +45,7 @@ terminal and press **Enter**.
 
 ### Step 3 — Start watching
 
-**Keep it running and check every 10 minutes** (leave this window open):
+**Keep it running** (checks every 10 seconds; leave this window open):
 ```
 python onlinejobs_watcher.py --keyword "video editor" --must-include ai
 ```
@@ -89,11 +89,14 @@ python onlinejobs_watcher.py --keyword "video editor" --must-include ai --discor
 ```
 Now every new post gets sent to Discord (and your phone) automatically.
 
-### Want faster notifications?
-By default it checks every 10 minutes. For quicker alerts, lower the interval
-(minimum 60 seconds). Every 5 minutes is a good, polite balance:
+### How fast are the alerts?
+By default it now checks **every 10 seconds** — so new posts reach your phone
+within seconds of going live. That's the fastest allowed (the site's rules ask
+for at least a 5-second gap between checks, so 10s stays safely within that).
+
+To check less often (e.g. every 2 minutes), raise the interval:
 ```
-python onlinejobs_watcher.py --keyword "video editor" --must-include ai --discord "URL" --interval 300
+python onlinejobs_watcher.py --keyword "video editor" --must-include ai --discord "URL" --interval 120
 ```
 
 > There's also `--desktop` for a computer pop-up, and Telegram support
@@ -120,7 +123,7 @@ Instead of leaving a terminal open, run the `--once` version on a schedule:
 | `--keyword "video editor"` | What to search for (required-ish; default "video editor") |
 | `--must-include ai`        | Only posts whose **title** contains this word (whole word) |
 | `--once`                   | Check one time and exit (for scheduling) |
-| `--interval 600`           | Seconds between checks when looping (default 600 = 10 min; min 60) |
+| `--interval 10`            | Seconds between checks when looping (default 10; minimum 10) |
 | `--discord "URL"`          | Send alerts to a Discord webhook |
 | `--test-alert`             | Send one sample alert to your channel(s) to confirm setup, then exit |
 | `--desktop`                | Show a pop-up on your computer |
