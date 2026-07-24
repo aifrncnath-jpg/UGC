@@ -23,7 +23,8 @@ By default it runs in **FAST mode**: it watches the site's live **newest-jobs
 feed** and alerts you the moment a post appears whose title is a **video job**
 (video, editor, editing, UGC, VSL, motion, etc.) **AND** matches your focus —
 either **AI** (or an AI tool name) **or** **ecommerce/DTC ads** (ecommerce, DTC,
-paid social, Shopify, supplements, UGC ads, etc.). It's a single check, so it
+direct response, paid social, meta/facebook/tiktok ads, performance creative,
+UGC ads, Shopify, supplements, conversion, etc.). It's a single check, so it
 runs **every ~15 seconds** — you find out almost immediately. 🏃
 
 - Catches: "**AI** Video Editor", "**Ecommerce** Video Editing", "Video Editor

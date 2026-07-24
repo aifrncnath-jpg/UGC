@@ -94,6 +94,10 @@ DEFAULT_KEYWORDS = [
     "paid social video editor",
     "ugc ads editor",
     "product video ad",
+    "direct response video editor",
+    "dtc ad editor",
+    "performance creative editor",
+    "supplement ad video",
 ]
 
 # A post is only pushed to you if its TITLE contains one of these AI signals.
@@ -127,11 +131,13 @@ VIDEO_TERMS = [
 # even when the title never says "AI" (AI is often only in the description).
 ECOM_TERMS = [
     "ecommerce", "e-commerce", "e commerce", "dtc", "d2c", "direct to consumer",
-    "direct-to-consumer", "paid social", "paid ads", "paid media", "facebook ad",
-    "facebook ads", "fb ads", "meta ads", "ig ads", "instagram ads", "tiktok ads",
-    "ad creative", "ad creatives", "ugc ads", "performance marketing",
-    "performance creative", "shopify", "dropshipping", "supplement", "supplements",
-    "roas", "product ad",
+    "direct-to-consumer", "direct response", "direct-response", "paid social",
+    "paid ads", "paid media", "facebook ad", "facebook ads", "fb ads", "meta ad",
+    "meta ads", "ig ads", "instagram ads", "tiktok ads", "google ads",
+    "ad creative", "ad creatives", "ugc ads", "ugc creator", "user generated content",
+    "user-generated content", "performance marketing", "performance creative",
+    "performance ad", "performance ads", "conversion", "shopify", "dropshipping",
+    "supplement", "supplements", "roas", "product ad",
 ]
 
 
