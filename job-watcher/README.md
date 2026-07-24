@@ -65,19 +65,39 @@ python onlinejobs_watcher.py --keyword "video editor" --must-include ai --once
 
 ---
 
-## 📱 Get alerts on your phone (optional, via Discord)
+## 📱 Get real-time alerts on your phone (Discord)
 
-Easiest way to get pinged anywhere:
-1. In any Discord server you own: **Server Settings → Integrations → Webhooks →
-   New Webhook → Copy Webhook URL**.
-2. Add it to the command:
+This is the best way to be notified the moment a new job appears — Discord pings
+your phone automatically.
+
+**Step 1 — Create a webhook (one time):**
+1. Open Discord (you need a server you own — make a free private one if needed:
+   **+ → Create My Own**).
+2. Go to **Server Settings → Integrations → Webhooks → New Webhook**.
+3. (Optional) pick which channel it posts to, then click **Copy Webhook URL**.
+
+**Step 2 — Test that it works:**
+```
+python onlinejobs_watcher.py --discord "PASTE_WEBHOOK_URL_HERE" --test-alert
+```
+You should get a **TEST** message in Discord within a second. ✅
+(If nothing arrives, re-copy the webhook URL — that's almost always the issue.)
+
+**Step 3 — Start watching with Discord alerts:**
 ```
 python onlinejobs_watcher.py --keyword "video editor" --must-include ai --discord "PASTE_WEBHOOK_URL_HERE"
 ```
-Now new jobs get posted to your Discord (and Discord notifies your phone).
+Now every new post gets sent to Discord (and your phone) automatically.
 
-There's also `--desktop` for a pop-up on your computer, and Telegram support
-(`--telegram-token` + `--telegram-chat`).
+### Want faster notifications?
+By default it checks every 10 minutes. For quicker alerts, lower the interval
+(minimum 60 seconds). Every 5 minutes is a good, polite balance:
+```
+python onlinejobs_watcher.py --keyword "video editor" --must-include ai --discord "URL" --interval 300
+```
+
+> There's also `--desktop` for a computer pop-up, and Telegram support
+> (`--telegram-token` + `--telegram-chat`).
 
 ---
 
@@ -102,6 +122,7 @@ Instead of leaving a terminal open, run the `--once` version on a schedule:
 | `--once`                   | Check one time and exit (for scheduling) |
 | `--interval 600`           | Seconds between checks when looping (default 600 = 10 min; min 60) |
 | `--discord "URL"`          | Send alerts to a Discord webhook |
+| `--test-alert`             | Send one sample alert to your channel(s) to confirm setup, then exit |
 | `--desktop`                | Show a pop-up on your computer |
 | `--notify-existing`        | On the FIRST run, alert on all current matches (default: stay quiet) |
 | `--state seen_jobs.json`   | Where it remembers seen jobs (keep the same path each run) |

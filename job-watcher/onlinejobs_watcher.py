@@ -216,7 +216,25 @@ def main() -> int:
     ap.add_argument("--discord", help="Discord webhook URL for alerts.")
     ap.add_argument("--telegram-token", help="Telegram bot token.")
     ap.add_argument("--telegram-chat", help="Telegram chat id.")
+    ap.add_argument("--test-alert", action="store_true",
+                    help="Send a sample alert to your configured channels (Discord/desktop/Telegram) and exit. "
+                         "Use this to confirm notifications work.")
     args = ap.parse_args()
+
+    if args.test_alert:
+        sample = [{
+            "id": "0", "title": "TEST — AI Video Editor (this is a test alert)",
+            "type": "Full Time", "posted": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "url": "https://www.onlinejobs.ph/jobseekers/jobsearch",
+        }]
+        if not (args.discord or args.desktop or (args.telegram_token and args.telegram_chat)):
+            print("[!] No alert channel set. Add --discord \"URL\" (and/or --desktop) to test.")
+            return 1
+        print("[*] Sending a test alert to your configured channel(s)...")
+        send_alerts(sample, args)
+        print("[*] Sent. Check Discord / your desktop / Telegram. If you didn't get it, "
+              "double-check the webhook URL.")
+        return 0
 
     if args.interval < 60:
         print("[!] Please keep --interval at 60s or more to be polite to the site. Using 60.")
