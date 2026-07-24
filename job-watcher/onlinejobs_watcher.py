@@ -324,7 +324,7 @@ def gather_jobs(args) -> list[dict]:
     return parse_jobs(http_get(SEARCH))
 
 
-def check_once(args, state: dict) -> list[dict]:
+def check_once(args, state: dict, baseline: bool = False) -> list[dict]:
     jobs = gather_jobs(args)
 
     # Optional hard age cap (off by default). The main "only new" logic below is
@@ -359,20 +359,30 @@ def check_once(args, state: dict) -> list[dict]:
     seen = set(state.get("seen_ids", []))
     last_ref = parse_posted(state.get("last_posted", ""))
 
-    # Newest post time in this batch — the moving "as of now" reference point.
+    # Newest post time in this batch — used as a timezone-safe "as of now".
     batch_times = [t for t in (parse_posted(j.get("posted", "")) for j in jobs) if t]
     batch_max = max(batch_times) if batch_times else None
+
+    # Decide the cutoff for "new":
+    #  • On the FIRST check of a run (baseline): only look back --lookback-minutes
+    #    from the newest post — so starting it shows just the last few minutes,
+    #    never old posts.
+    #  • On later checks: anything newer than the newest post we've already seen.
+    if baseline or last_ref is None:
+        cutoff = (batch_max - timedelta(minutes=max(0, args.lookback_minutes))) if batch_max else None
+    else:
+        cutoff = last_ref
 
     new_jobs = []
     for j in jobs:
         if j["id"] in seen:
             continue
         pt = parse_posted(j.get("posted", ""))
-        # A post is NEW only if it was posted AFTER the newest post we'd already
-        # seen. So running it = "from this moment on, only newer posts" — and old
-        # posts that deep mode's relevance search digs up are never alerted.
-        if not args.notify_existing and last_ref is not None and pt is not None and pt <= last_ref:
-            continue
+        if not args.notify_existing and cutoff is not None:
+            # Skip anything at/older than the cutoff (and skip undated posts, which
+            # would otherwise let stale entries through).
+            if pt is None or pt <= cutoff:
+                continue
         new_jobs.append(j)
 
     # Update memory: seen IDs + the newest post time observed so far.
@@ -399,6 +409,9 @@ def main() -> int:
     ap.add_argument("--max-age-hours", type=int, default=0,
                     help="Optional hard cap: ignore posts older than N hours (0 = off, the default). "
                          "Not usually needed — the tool already only alerts on posts newer than the last one seen.")
+    ap.add_argument("--lookback-minutes", type=int, default=5,
+                    help="When you start it, only consider posts from the last N minutes (default: 5). "
+                         "After that it just keeps alerting on newer posts.")
     ap.add_argument("--interval", type=int, default=15, help="Seconds between checks (default: 15). Minimum 10.")
     ap.add_argument("--req-delay", type=int, default=5, help="[deep mode] Seconds between searches (default/min: 5).")
     ap.add_argument("--once", action="store_true", help="Check once and exit (use with Task Scheduler / cron).")
@@ -455,26 +468,29 @@ def main() -> int:
         args.interval = 10
 
     state = load_state(args.state)
-    first_run = not state.get("seen_ids")
+    is_first = {"v": True}
 
     def one_pass():
         try:
-            new_jobs = check_once(args, state)
+            new_jobs = check_once(args, state, baseline=is_first["v"])
         except Exception as e:  # noqa: BLE001
             print(f"[{datetime.now():%H:%M:%S}] check failed: {e}")
             return
+        first = is_first["v"]
+        is_first["v"] = False
         save_state(args.state, state)
         stamp = f"[{datetime.now():%Y-%m-%d %H:%M:%S}]"
-        if first_run and not args.notify_existing:
-            print(f"{stamp} Baseline recorded: tracking {len(state['seen_ids'])} current matching post(s). "
-                  f"You'll be alerted about NEW ones from now on.")
-            return
         if new_jobs:
-            print(f"{stamp} {len(new_jobs)} NEW matching post(s):")
+            label = (f"post(s) from the last {args.lookback_minutes} min"
+                     if first else "NEW post(s)")
+            print(f"{stamp} {len(new_jobs)} {label}:")
             for j in new_jobs:
                 print(f"    • {j['title']}  [{j['type']}]  — {j['posted']}")
                 print(f"      {j['url']}")
             send_alerts(new_jobs, args)
+        elif first:
+            print(f"{stamp} No posts in the last {args.lookback_minutes} min. "
+                  f"Watching for new ones from now on...")
         else:
             print(f"{stamp} No new posts.")
 
@@ -499,7 +515,6 @@ def main() -> int:
     try:
         while True:
             time.sleep(args.interval)
-            first_run = False  # after the first loop it's no longer the baseline run
             one_pass()
     except KeyboardInterrupt:
         print("\n[*] Stopped.")

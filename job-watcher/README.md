@@ -118,6 +118,7 @@ It's thorough but slower (~2 min per cycle). Edit the list at the top of
 | `--must-include word` | Require an extra word in the title too (on top of AI) |
 | `--keywords "a" "b"`  | (deep mode) use your own search terms |
 | `--desktop`           | Also show a pop-up on your computer |
+| `--lookback-minutes 5`| On startup, only consider posts from the last N minutes (default 5) |
 | `--interval 15`       | Seconds between checks (default 15, minimum 10) |
 | `--max-age-hours 24`  | Optional hard cap: ignore posts older than N hours (0 = off, default) |
 | `--once`              | Check once and exit (for scheduling) |
@@ -155,18 +156,18 @@ Use the `--once` version on a schedule (keep the same `--state` file!):
 - **No alerts** → First run only records a baseline; alerts start on the next new AI post. Test with `--test-alert`.
 - **Same jobs repeating** → Use the **same `--state` file path** each time.
 - **Want ALL video jobs (not just AI/ecommerce)?** → add `--allow-non-ai`.
-- **Old posts showing up?** They shouldn't — the tool sets a baseline the moment
-  you run it, and only alerts on posts **posted after** that. Old posts (even ones
-  deep mode's search digs up) are never alerted. If you ever want a fresh start,
-  delete `seen_jobs.json`; the next run re-baselines to "now".
+- **Old posts showing up?** They shouldn't — when you start it, it only looks at
+  posts from the **last 5 minutes**, then keeps alerting on newer ones. Old posts
+  (even ones deep mode's search digs up) are never alerted. Want a different
+  window? Use `--lookback-minutes 10` (or any number).
 - **Stop it** → click the terminal, press **`Ctrl + C`**.
 
 ---
 
 ## How it works (short version)
 In FAST mode, every ~15s it grabs the newest-jobs feed and keeps posts whose title
-is a video job that's also AI or ecommerce related. A post is treated as **new**
-only if it was **posted after the newest post seen so far** (the reference time is
-saved in `seen_jobs.json`). So when you start it, that moment becomes the baseline
-and you only get posts from then on — no old posts, no repeats. Anything new gets
-pushed to Discord. (DEEP mode does the same but searches many keywords instead.)
+is a video job that's also AI or ecommerce related. **When you start it, it only
+looks at posts from the last 5 minutes** (so you still catch one posted just before
+you ran it) — then it keeps alerting on any post newer than the latest one it has
+seen. No old posts, no repeats. Anything new gets pushed to Discord. (DEEP mode
+does the same but searches many keywords instead.)
