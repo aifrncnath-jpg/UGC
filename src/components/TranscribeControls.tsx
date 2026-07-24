@@ -2,9 +2,9 @@ import { Loader2, Wand2 } from 'lucide-react'
 import { useStore } from '../store'
 
 const MODELS = [
-  { value: 'onnx-community/whisper-tiny', label: 'Fast (tiny)' },
-  { value: 'onnx-community/whisper-base', label: 'Balanced (base)' },
-  { value: 'onnx-community/whisper-small', label: 'Accurate (small)' },
+  { value: 'onnx-community/whisper-tiny_timestamped', label: 'Fast (tiny)' },
+  { value: 'onnx-community/whisper-base_timestamped', label: 'Balanced (base)' },
+  { value: 'onnx-community/whisper-small_timestamped', label: 'Accurate (small)' },
 ]
 
 const LANGS = [
@@ -20,6 +20,7 @@ const LANGS = [
   ['japanese', 'Japanese'],
   ['korean', 'Korean'],
   ['chinese', 'Chinese'],
+  ['tagalog', 'Tagalog (Filipino)'],
 ]
 
 export default function TranscribeControls() {

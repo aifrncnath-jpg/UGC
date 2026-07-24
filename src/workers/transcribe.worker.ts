@@ -46,7 +46,14 @@ async function webgpuUsable(): Promise<boolean> {
 async function buildPipeline(model: string, device: 'webgpu' | 'wasm') {
   const pipe = await pipeline('automatic-speech-recognition', model, {
     device,
-    dtype: device === 'webgpu' ? 'fp32' : 'q8',
+    // Quantize the heavy audio encoder (smaller download + faster), but keep
+    // the decoder full-precision: the quantized decoder variants use a
+    // MatMulNBits op on the tied embed_tokens weights that ORT-Web's WASM
+    // backend cannot load. This combo is both compatible and lean.
+    dtype:
+      device === 'webgpu'
+        ? { encoder_model: 'fp32', decoder_model_merged: 'fp32' }
+        : { encoder_model: 'q8', decoder_model_merged: 'fp32' },
     progress_callback,
   })
   transcriber = pipe

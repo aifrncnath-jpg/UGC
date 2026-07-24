@@ -71,7 +71,7 @@ export const useStore = create<State>((set, get) => ({
   device: null,
   errorMsg: null,
 
-  model: 'onnx-community/whisper-base',
+  model: 'onnx-community/whisper-tiny_timestamped',
   language: 'auto',
 
   words: [],
