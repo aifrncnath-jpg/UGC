@@ -1,14 +1,15 @@
-# 🔔 OnlineJobs.ph AI-Video Job Watcher — Beginner's Guide
+# 🔔 OnlineJobs.ph Video-Job Watcher (AI + Ecommerce) — Beginner's Guide
 
-Watches [OnlineJobs.ph](https://www.onlinejobs.ph) for **new AI video-related job
-posts** (AI video editor, AI video creation, UGC, VSL, and more) and pings your
-**Discord** the moment a matching post appears — so you can be first to apply. 🚀
+Watches [OnlineJobs.ph](https://www.onlinejobs.ph) for **new video-editing job
+posts** in your niche — **AI video** *and* **ecommerce / DTC ad** editing (UGC,
+VSL, paid social, supplements, and more) — and pings your **Discord** the moment
+a matching post appears, so you can be first to apply. 🚀
 
 **No coding knowledge needed** — follow the steps in order. 🙂
 
-> ✅ **AI-only:** it only alerts you about posts whose title mentions **AI**.
-> Non-AI posts are ignored, so you won't get spammed with generic video-editor
-> jobs.
+> ✅ **Targeted:** it alerts you when a post is a **video job** that's also
+> **AI-related _or_ ecommerce/DTC-ad-related**. Generic, off-topic jobs are
+> ignored, so you won't get spammed.
 >
 > ℹ️ It reads the site's **public** job pages (no login), remembers what it has
 > already seen (so only *new* posts alert you), and checks politely (within the
@@ -19,21 +20,24 @@ posts** (AI video editor, AI video creation, UGC, VSL, and more) and pings your
 ## What it watches (and how fast)
 
 By default it runs in **FAST mode**: it watches the site's live **newest-jobs
-feed** and alerts you the moment a post appears whose title mentions **AI** *and*
-something **video-related** (video, editor, UGC, VSL, reels, motion, capcut, veo,
-runway, etc.). Because it's a single check, it runs **every ~15 seconds** — so
-you find out almost immediately and can apply first. 🏃
+feed** and alerts you the moment a post appears whose title is a **video job**
+(video, editor, editing, UGC, VSL, motion, etc.) **AND** matches your focus —
+either **AI** (or an AI tool name) **or** **ecommerce/DTC ads** (ecommerce, DTC,
+paid social, Shopify, supplements, UGC ads, etc.). It's a single check, so it
+runs **every ~15 seconds** — you find out almost immediately. 🏃
 
-- A generic "Video Editor" post is skipped; "**AI** Video Editor",
-  "AI Video Generation", or "AI Video Creation" gets pushed to you.
-- It also recognizes **AI tool names** as an AI signal — so a post like
-  "Video Editor (Veo 3)" or "Editor — Runway / Kling / HeyGen" is caught even
-  when it never writes the word "AI". (Tools known: Sora, Runway, Veo, Kling,
-  Pika, Luma, HeyGen, Synthesia, Descript, Midjourney, ElevenLabs, and more.)
-- **FAST mode** filters by the job **title**. If you also want to catch posts
-  where AI is mentioned only in the *description*, run **DEEP mode**
-  (`--mode deep`) — it searches ~16 keywords, so it's thorough but slower
-  (~1.5 min per cycle).
+- Catches: "**AI** Video Editor", "**Ecommerce** Video Editing", "Video Editor
+  for **DTC Supplement** Brand", "**UGC Ads** Editor", "Short-Form Video Editor
+  (**Veo 3**)".
+- Skips: a plain "Video Editor (Church Focused)", or an "Ecommerce Executive"
+  that isn't a video role.
+- Recognizes **AI tool names** as an AI signal (Sora, Runway, Veo, Kling, Pika,
+  Luma, HeyGen, Synthesia, Descript, Midjourney, ElevenLabs, …) — so tool-named
+  posts count even without the word "AI".
+- **FAST mode reads titles.** If a post hides its AI/ecommerce angle only in the
+  *description* (title just says "Video Editor"), run **DEEP mode**
+  (`--mode deep`): it searches ~27 keywords across titles *and descriptions*,
+  so it catches those too (slower, ~2 min per cycle).
 
 ---
 
@@ -108,7 +112,7 @@ It's thorough but slower (~2 min per cycle). Edit the list at the top of
 | `--discord "URL"`     | Send alerts to your Discord webhook |
 | `--test-alert`        | Send one sample alert to confirm setup, then exit |
 | `--mode deep`         | Thorough keyword search (also catches AI in the description; slower) |
-| `--allow-non-ai`      | Turn OFF the AI-only filter (get all video jobs, not just AI) |
+| `--allow-non-ai`      | Turn OFF the focus filter (get ALL video jobs, not just AI/ecommerce) |
 | `--no-video-filter`   | (fast mode) don't require a video word in the title |
 | `--must-include word` | Require an extra word in the title too (on top of AI) |
 | `--keywords "a" "b"`  | (deep mode) use your own search terms |
@@ -148,7 +152,7 @@ Use the `--once` version on a schedule (keep the same `--state` file!):
 - **"python is not recognized"** → Windows: reinstall and tick "Add python.exe to PATH". Mac: use `python3`.
 - **No alerts** → First run only records a baseline; alerts start on the next new AI post. Test with `--test-alert`.
 - **Same jobs repeating** → Use the **same `--state` file path** each time.
-- **Want non-AI jobs too** → add `--allow-non-ai`.
+- **Want ALL video jobs (not just AI/ecommerce)?** → add `--allow-non-ai`.
 - **Stop it** → click the terminal, press **`Ctrl + C`**.
 
 ---

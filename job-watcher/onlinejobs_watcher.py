@@ -87,6 +87,13 @@ DEFAULT_KEYWORDS = [
     "ugc video editor",
     "vsl",
     "video sales letter",
+    # --- ecommerce / DTC ad editing (AI is often only in the description) ---
+    "ecommerce video editor",
+    "dtc video editor",
+    "video ad editor",
+    "paid social video editor",
+    "ugc ads editor",
+    "product video ad",
 ]
 
 # A post is only pushed to you if its TITLE contains one of these AI signals.
@@ -108,10 +115,23 @@ VIDEO_TERMS = [
     "video", "editor", "editing", "ugc", "vsl", "reel", "reels", "shorts",
     "short-form", "short form", "long-form", "motion graphics", "motion",
     "animation", "animator", "videographer", "capcut", "premiere", "after effects",
-    "davinci", "resolve", "faceless", "b-roll", "broll", "youtube", "tiktok",
-    "content creator", "creative editor", "video ad", "ad creative", "creatives",
-    "footage", "avatar", "explainer", "promo", "commercial", "vfx", "clips",
-    "lipsync", "lip sync", "voiceover", "voice over", "talking head", "spokesperson",
+    "davinci", "resolve", "faceless", "b-roll", "broll",
+    "creative editor", "video ad", "ad creative", "footage", "explainer",
+    "vfx", "lipsync", "lip sync", "talking head",
+]
+# NOTE: bare platform names (youtube, tiktok, instagram) are deliberately NOT
+# here — alone they signal social/marketing jobs, not editing. A real editing
+# post almost always also says "video"/"editor"/"editing"/"ugc"/"vsl"/etc.
+
+# A post also counts as on-target if it's an ecommerce / DTC / paid-ads video job,
+# even when the title never says "AI" (AI is often only in the description).
+ECOM_TERMS = [
+    "ecommerce", "e-commerce", "e commerce", "dtc", "d2c", "direct to consumer",
+    "direct-to-consumer", "paid social", "paid ads", "paid media", "facebook ad",
+    "facebook ads", "fb ads", "meta ads", "ig ads", "instagram ads", "tiktok ads",
+    "ad creative", "ad creatives", "ugc ads", "performance marketing",
+    "performance creative", "shopify", "dropshipping", "supplement", "supplements",
+    "roas", "product ad",
 ]
 
 
@@ -224,10 +244,10 @@ def notify_desktop(title: str, message: str) -> None:
 def send_alerts(new_jobs: list[dict], args) -> None:
     lines = [f"• {j['title']}  [{j['type']}]  — {j['posted']}\n  {j['url']}" for j in new_jobs]
     body = "\n".join(lines)
-    header = f"{len(new_jobs)} new AI video job post(s) on OnlineJobs.ph"
+    header = f"{len(new_jobs)} new video job post(s) on OnlineJobs.ph (AI / ecommerce)"
 
     if args.desktop:
-        notify_desktop("New AI video job", f"{len(new_jobs)} new post(s) on OnlineJobs.ph")
+        notify_desktop("New video job", f"{len(new_jobs)} new post(s) on OnlineJobs.ph")
     if args.discord:
         # Discord messages cap ~2000 chars; chunk if needed.
         text = f"**{header}**\n{body}"
@@ -260,7 +280,11 @@ def gather_jobs(args) -> list[dict]:
                 print(f"    [!] search '{kw}' failed: {e}")
                 jobs = []
             for j in jobs:
-                merged.setdefault(j["id"], j)
+                if j["id"] in merged:
+                    merged[j["id"]]["matched"].add(kw)
+                else:
+                    j["matched"] = {kw}
+                    merged[j["id"]] = j
             if i < len(args.keywords) - 1 and args.req_delay:
                 time.sleep(args.req_delay)  # respect the site's crawl-delay
         return list(merged.values())
@@ -271,13 +295,27 @@ def gather_jobs(args) -> list[dict]:
 def check_once(args, state: dict) -> list[dict]:
     jobs = gather_jobs(args)
 
-    # AI requirement (unless --allow-non-ai): the title must mention AI.
-    if args.require:
-        jobs = [j for j in jobs if title_has_any(j["title"], args.require)]
-    # In FAST mode we also require a video signal (DEEP mode already searched
-    # video keywords, so its results are already video-focused).
+    # In FAST mode we require a video signal in the title (all we can see).
+    # DEEP mode searched video/ecommerce keywords, so results are already on-topic.
     if args.mode == "fast" and not args.no_video_filter:
         jobs = [j for j in jobs if title_has_any(j["title"], VIDEO_TERMS)]
+
+    # FOCUS requirement (AI or ecommerce), unless --allow-non-ai.
+    if args.require:
+        kept = []
+        for j in jobs:
+            # (a) the focus shows in the title, OR
+            if title_has_any(j["title"], args.require):
+                kept.append(j)
+                continue
+            # (b) DEEP mode: a focus-specific search term found it (matched the
+            #     job's DESCRIPTION) — trust that even if the title hides it.
+            if args.mode == "deep" and any(
+                title_has_any(k, args.require) for k in j.get("matched", ())
+            ):
+                kept.append(j)
+        jobs = kept
+
     # Optional user-specified extra requirement.
     if args.must_include:
         jobs = [j for j in jobs if title_has_any(j["title"], args.must_include)]
@@ -326,8 +364,9 @@ def main() -> int:
     else:
         args.keywords = list(DEFAULT_KEYWORDS)
 
-    # The AI requirement: a post's TITLE must mention AI, unless explicitly disabled.
-    args.require = [] if args.allow_non_ai else list(DEFAULT_AI_TERMS)
+    # The FOCUS requirement: a post must be AI-related OR ecommerce/DTC-ad related,
+    # unless explicitly disabled with --allow-non-ai.
+    args.require = [] if args.allow_non_ai else (list(DEFAULT_AI_TERMS) + list(ECOM_TERMS))
 
     if args.req_delay < 5:
         args.req_delay = 5  # respect the site's 5s crawl-delay
@@ -374,7 +413,7 @@ def main() -> int:
                   f"You'll be alerted about NEW ones from now on.")
             return
         if new_jobs:
-            print(f"{stamp} {len(new_jobs)} NEW AI video post(s):")
+            print(f"{stamp} {len(new_jobs)} NEW matching post(s):")
             for j in new_jobs:
                 print(f"    • {j['title']}  [{j['type']}]  — {j['posted']}")
                 print(f"      {j['url']}")
@@ -382,12 +421,12 @@ def main() -> int:
         else:
             print(f"{stamp} No new posts.")
 
-    ai_note = "AI-only" if args.require else "AI filter OFF"
+    focus_note = "AI + ecommerce" if args.require else "focus filter OFF"
     if args.mode == "fast":
         vf = "" if args.no_video_filter else " + video"
-        print(f"[*] Watching the newest-jobs feed [{ai_note}{vf}] — FAST mode.")
+        print(f"[*] Watching the newest-jobs feed [{focus_note}{vf}] — FAST mode.")
     else:
-        print(f"[*] Watching {len(args.keywords)} search term(s) [{ai_note}] — DEEP mode.")
+        print(f"[*] Watching {len(args.keywords)} search term(s) [{focus_note}] — DEEP mode.")
     one_pass()
 
     if args.once:
