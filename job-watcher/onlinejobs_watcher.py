@@ -343,16 +343,23 @@ def main() -> int:
         else:
             print(f"{stamp} No new posts.")
 
+    n = len(args.keywords)
     ai_note = "AI-only" if args.require else "AI filter OFF"
-    print(f"[*] Watching OnlineJobs.ph across {len(args.keywords)} search term(s) [{ai_note}]"
+    print(f"[*] Watching OnlineJobs.ph across {n} search term(s) [{ai_note}]"
           + (f", title must also include: {args.must_include}" if args.must_include else ""))
+    # A full sweep searches every keyword with a polite gap between each.
+    sweep_est = (n - 1) * args.req_delay + n  # ~gaps + ~1s/request
+    cycle_est = sweep_est + args.interval
+    m, s = divmod(cycle_est, 60)
+    pretty_cycle = (f"~{m} min {s}s" if m else f"~{s}s")
     one_pass()
 
     if args.once:
         return 0
 
-    pretty = f"{args.interval}s" if args.interval < 60 else f"{args.interval//60} min"
-    print(f"[*] Checking every {pretty}. Press Ctrl+C to stop.")
+    print(f"[*] Running continuously. It re-scans all {n} terms about every {pretty_cycle} "
+          f"(a {args.req_delay}s gap between searches keeps it polite to the site). "
+          f"Press Ctrl+C to stop.")
     try:
         while True:
             time.sleep(args.interval)
