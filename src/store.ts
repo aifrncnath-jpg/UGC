@@ -141,7 +141,13 @@ export const useStore = create<State>((set, get) => ({
         switch (data.status) {
           case 'loading-model': {
             const p = data.data
-            if (p && typeof p.progress === 'number') {
+            if (p && p.status === 'fallback') {
+              set({
+                status: 'loading-model',
+                progress: 0,
+                progressLabel: 'GPU unavailable — switching to CPU mode…',
+              })
+            } else if (p && typeof p.progress === 'number') {
               set({
                 status: 'loading-model',
                 progress: p.progress / 100,
