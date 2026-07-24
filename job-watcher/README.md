@@ -164,7 +164,9 @@ Use the `--once` version on a schedule (keep the same `--state` file!):
 ---
 
 ## How it works (short version)
-In FAST mode, every ~15s it grabs the newest-jobs feed, keeps only posts whose
-title mentions **AI** and something video-related, and compares their IDs against
-the ones it has already shown you (saved in `seen_jobs.json`). Anything new gets
+In FAST mode, every ~15s it grabs the newest-jobs feed and keeps posts whose title
+is a video job that's also AI or ecommerce related. A post is treated as **new**
+only if it was **posted after the newest post seen so far** (the reference time is
+saved in `seen_jobs.json`). So when you start it, that moment becomes the baseline
+and you only get posts from then on — no old posts, no repeats. Anything new gets
 pushed to Discord. (DEEP mode does the same but searches many keywords instead.)
