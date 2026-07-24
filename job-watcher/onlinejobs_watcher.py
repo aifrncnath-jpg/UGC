@@ -51,7 +51,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timedelta
 
 BASE = "https://www.onlinejobs.ph"
 SEARCH = BASE + "/jobseekers/jobsearch"
@@ -274,6 +274,32 @@ def title_has_any(title: str, terms: list[str]) -> bool:
     return any(re.search(r"\b" + re.escape(term.lower()) + r"\b", t) for term in terms)
 
 
+def parse_posted(s: str):
+    """Parse a 'Posted on' timestamp like '2026-07-24 15:41:29' into a datetime."""
+    try:
+        return datetime.strptime((s or "").strip(), "%Y-%m-%d %H:%M:%S")
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def filter_recent(jobs: list[dict], max_age_hours: int) -> list[dict]:
+    """Drop posts older than max_age_hours.
+
+    Uses the NEWEST post in the batch as the reference "now" (the feed always
+    contains a just-posted job), so it's immune to timezone differences between
+    your computer's clock and the site's timestamps.
+    """
+    if not max_age_hours or max_age_hours <= 0:
+        return jobs
+    dated = [(j, parse_posted(j.get("posted", ""))) for j in jobs]
+    times = [d for _, d in dated if d]
+    if not times:
+        return jobs
+    cutoff = max(times) - timedelta(hours=max_age_hours)
+    # Keep recent posts; keep undated ones too (rare) so we never silently miss.
+    return [j for j, d in dated if (d is None or d >= cutoff)]
+
+
 def gather_jobs(args) -> list[dict]:
     """FAST mode = one request to the newest-jobs feed. DEEP mode = many searches."""
     if args.mode == "deep":
@@ -300,6 +326,11 @@ def gather_jobs(args) -> list[dict]:
 
 def check_once(args, state: dict) -> list[dict]:
     jobs = gather_jobs(args)
+
+    # Recency filter: ignore old posts. Deep-mode keyword search is sorted by
+    # relevance (not date), so it can surface months-old posts — this keeps
+    # only recently-posted jobs.
+    jobs = filter_recent(jobs, args.max_age_hours)
 
     # In FAST mode we require a video signal in the title (all we can see).
     # DEEP mode searched video/ecommerce keywords, so results are already on-topic.
@@ -348,6 +379,9 @@ def main() -> int:
                     help="Turn OFF the AI-only filter (by default, only posts whose title mentions AI are pushed).")
     ap.add_argument("--no-video-filter", action="store_true",
                     help="[fast mode] Don't require a video-related word in the title.")
+    ap.add_argument("--max-age-hours", type=int, default=72,
+                    help="Ignore posts older than this many hours (default: 72 = 3 days; 0 = no limit). "
+                         "Fixes deep mode surfacing old posts.")
     ap.add_argument("--interval", type=int, default=15, help="Seconds between checks (default: 15). Minimum 10.")
     ap.add_argument("--req-delay", type=int, default=5, help="[deep mode] Seconds between searches (default/min: 5).")
     ap.add_argument("--once", action="store_true", help="Check once and exit (use with Task Scheduler / cron).")
