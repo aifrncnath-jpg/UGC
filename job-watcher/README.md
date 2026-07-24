@@ -16,17 +16,20 @@ posts** (AI video editor, AI video creation, UGC, VSL, and more) and pings your
 
 ---
 
-## What it watches
+## What it watches (and how fast)
 
-By default it searches these terms and alerts on any **new + AI** result:
+By default it runs in **FAST mode**: it watches the site's live **newest-jobs
+feed** and alerts you the moment a post appears whose title mentions **AI** *and*
+something **video-related** (video, editor, UGC, VSL, reels, motion, capcut, veo,
+runway, etc.). Because it's a single check, it runs **every ~15 seconds** — so
+you find out almost immediately and can apply first. 🏃
 
-`ai video editor`, `ai video`, `ai video generation`, `ai video creation`,
-`ai video specialist`, `video editor`, `video specialist`, `video producer`,
-`video content creator`, `short form video`, `faceless video`, `ugc`,
-`ugc video editor`, `vsl`, `video sales letter`, `motion graphics`.
-
-Because of the AI-only filter, a generic "Video Editor" post is skipped, but
-"**AI** Video Editor" or "Video Editor — **AI**-Native" gets pushed to you.
+- A generic "Video Editor" post is skipped; "**AI** Video Editor" or
+  "AI Video Ad Editor" gets pushed to you.
+- **FAST mode** filters by the job **title**. If you also want to catch posts
+  where AI is mentioned only in the *description*, run **DEEP mode**
+  (`--mode deep`) — it searches ~16 keywords, so it's thorough but slower
+  (~1.5 min per cycle).
 
 ---
 
@@ -76,9 +79,12 @@ to your Discord. 🎯
 ---
 
 ## How fast are the alerts?
-It continuously cycles through all the search terms and pings you within about a
-**minute or two** of a new AI post going live — while staying gentle on the site
-(it waits ~5 seconds between each search, as the site requests).
+**FAST mode (default):** one quick check of the newest feed every **~15 seconds**,
+so new AI video posts reach your Discord almost immediately. It stays gentle on
+the site (one lightweight request per check, well within the site's crawl delay).
+
+**DEEP mode** (`--mode deep`) is more thorough (searches ~16 keywords, including
+the job description) but slower (~1.5 min per cycle).
 
 ---
 
@@ -88,21 +94,26 @@ It continuously cycles through all the search terms and pings you within about a
 |----------|--------------|
 | `--discord "URL"`     | Send alerts to your Discord webhook |
 | `--test-alert`        | Send one sample alert to confirm setup, then exit |
+| `--mode deep`         | Thorough keyword search (also catches AI in the description; slower) |
 | `--allow-non-ai`      | Turn OFF the AI-only filter (get all video jobs, not just AI) |
-| `--keywords "a" "b"`  | Use your own search terms instead of the built-in list |
+| `--no-video-filter`   | (fast mode) don't require a video word in the title |
 | `--must-include word` | Require an extra word in the title too (on top of AI) |
+| `--keywords "a" "b"`  | (deep mode) use your own search terms |
 | `--desktop`           | Also show a pop-up on your computer |
-| `--interval 30`       | Seconds between full sweeps (default 10, minimum 10) |
+| `--interval 15`       | Seconds between checks (default 15, minimum 10) |
 | `--once`              | Check once and exit (for scheduling) |
 | `--state seen.json`   | Where it remembers seen jobs (keep the same path each run) |
 
 **Examples:**
 ```
-# default AI-only watch with Discord
+# default: fast AI-video watch with Discord (checks every ~15s)
 python onlinejobs_watcher.py --discord "URL"
 
-# your own custom terms
-python onlinejobs_watcher.py --discord "URL" --keywords "ai video editor" "vsl" "ai avatar"
+# even quicker checks (every 10s)
+python onlinejobs_watcher.py --discord "URL" --interval 10
+
+# thorough deep mode (also finds AI mentioned only in the description)
+python onlinejobs_watcher.py --discord "URL" --mode deep
 
 # get ALL video jobs (turn off the AI-only filter)
 python onlinejobs_watcher.py --discord "URL" --allow-non-ai
@@ -130,6 +141,7 @@ Use the `--once` version on a schedule (keep the same `--state` file!):
 ---
 
 ## How it works (short version)
-Each sweep it searches every keyword, merges the results, keeps only posts whose
-title mentions **AI**, and compares their IDs against the ones it has already
-shown you (saved in `seen_jobs.json`). Anything new gets pushed to Discord.
+In FAST mode, every ~15s it grabs the newest-jobs feed, keeps only posts whose
+title mentions **AI** and something video-related, and compares their IDs against
+the ones it has already shown you (saved in `seen_jobs.json`). Anything new gets
+pushed to Discord. (DEEP mode does the same but searches many keywords instead.)

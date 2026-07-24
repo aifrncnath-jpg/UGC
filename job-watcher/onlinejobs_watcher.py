@@ -85,6 +85,17 @@ DEFAULT_KEYWORDS = [
 # (Whole-word match, so "ai" matches "AI" / "AI-powered" but not "Dubai"/"email".)
 DEFAULT_AI_TERMS = ["ai", "artificial intelligence", "genai", "generative ai", "gen ai", "a.i"]
 
+# In FAST mode, a post must also look video-related. Generous list so we don't
+# miss AI-video jobs (includes formats + popular AI-video tools).
+VIDEO_TERMS = [
+    "video", "editor", "editing", "ugc", "vsl", "reel", "reels", "shorts",
+    "short-form", "short form", "long-form", "motion graphics", "motion",
+    "animation", "animator", "videographer", "capcut", "premiere", "after effects",
+    "veo", "runway", "kling", "sora", "heygen", "higgsfield", "faceless",
+    "b-roll", "broll", "youtube", "tiktok", "content creator", "creative editor",
+    "video ad", "ad creative", "creatives", "footage",
+]
+
 
 # --------------------------------------------------------------------------- #
 # HTTP
@@ -213,37 +224,43 @@ def send_alerts(new_jobs: list[dict], args) -> None:
 # --------------------------------------------------------------------------- #
 # One check
 # --------------------------------------------------------------------------- #
+def title_has_any(title: str, terms: list[str]) -> bool:
+    """Whole-word match so 'ai' matches 'AI'/'AI-powered' but not 'Dubai'/'email'."""
+    t = title.lower()
+    return any(re.search(r"\b" + re.escape(term.lower()) + r"\b", t) for term in terms)
+
+
+def gather_jobs(args) -> list[dict]:
+    """FAST mode = one request to the newest-jobs feed. DEEP mode = many searches."""
+    if args.mode == "deep":
+        merged: dict[str, dict] = {}
+        for i, kw in enumerate(args.keywords):
+            url = f"{SEARCH}?{urllib.parse.urlencode({'jobkeyword': kw})}"
+            try:
+                jobs = parse_jobs(http_get(url))
+            except Exception as e:  # noqa: BLE001
+                print(f"    [!] search '{kw}' failed: {e}")
+                jobs = []
+            for j in jobs:
+                merged.setdefault(j["id"], j)
+            if i < len(args.keywords) - 1 and args.req_delay:
+                time.sleep(args.req_delay)  # respect the site's crawl-delay
+        return list(merged.values())
+    # FAST mode: the newest-jobs feed (all categories, newest first) in ONE request.
+    return parse_jobs(http_get(SEARCH))
+
+
 def check_once(args, state: dict) -> list[dict]:
-    """Search every keyword, merge + de-duplicate, return jobs not seen before."""
-    merged: dict[str, dict] = {}
-    for i, kw in enumerate(args.keywords):
-        url = f"{SEARCH}?{urllib.parse.urlencode({'jobkeyword': kw})}"
-        try:
-            jobs = parse_jobs(http_get(url))
-        except Exception as e:  # noqa: BLE001
-            print(f"    [!] search '{kw}' failed: {e}")
-            jobs = []
-        for j in jobs:
-            if j["id"] in merged:
-                merged[j["id"]]["matched"].add(kw)
-            else:
-                j["matched"] = {kw}
-                merged[j["id"]] = j
-        # Space out requests to respect the site's crawl-delay.
-        if i < len(args.keywords) - 1 and args.req_delay:
-            time.sleep(args.req_delay)
+    jobs = gather_jobs(args)
 
-    jobs = list(merged.values())
-
-    def title_has_any(title: str, terms: list[str]) -> bool:
-        t = title.lower()
-        # Whole-word match so "ai" matches "AI"/"AI-powered" but not "Dubai"/"email".
-        return any(re.search(r"\b" + re.escape(term.lower()) + r"\b", t) for term in terms)
-
-    # Mandatory AI requirement (unless --allow-non-ai): title must mention AI.
+    # AI requirement (unless --allow-non-ai): the title must mention AI.
     if args.require:
         jobs = [j for j in jobs if title_has_any(j["title"], args.require)]
-    # Optional extra requirement.
+    # In FAST mode we also require a video signal (DEEP mode already searched
+    # video keywords, so its results are already video-focused).
+    if args.mode == "fast" and not args.no_video_filter:
+        jobs = [j for j in jobs if title_has_any(j["title"], VIDEO_TERMS)]
+    # Optional user-specified extra requirement.
     if args.must_include:
         jobs = [j for j in jobs if title_has_any(j["title"], args.must_include)]
 
@@ -257,16 +274,20 @@ def check_once(args, state: dict) -> list[dict]:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Watch OnlineJobs.ph for new AI video-related job posts.")
+    ap.add_argument("--mode", choices=["fast", "deep"], default="fast",
+                    help="fast = watch the newest-jobs feed in 1 request, ~15s checks (recommended). "
+                         "deep = search each keyword (also finds AI mentioned only in the description, but slower).")
     ap.add_argument("--keywords", nargs="+", default=None,
-                    help="Search terms to watch (default: the built-in AI/video list). "
-                         'Example: --keywords "ai video editor" "vsl" "ugc".')
-    ap.add_argument("--keyword", default=None, help="Shortcut for a single search term.")
+                    help="[deep mode] Search terms (default: the built-in AI/video list).")
+    ap.add_argument("--keyword", default=None, help="[deep mode] Shortcut for a single search term.")
     ap.add_argument("--must-include", nargs="+", default=None,
                     help="Extra word(s) the title must also contain (in addition to the AI requirement).")
     ap.add_argument("--allow-non-ai", action="store_true",
                     help="Turn OFF the AI-only filter (by default, only posts whose title mentions AI are pushed).")
-    ap.add_argument("--interval", type=int, default=10, help="Seconds between full sweeps (default: 10). Minimum 10.")
-    ap.add_argument("--req-delay", type=int, default=5, help="Seconds between individual searches (default/min: 5, the site's crawl-delay).")
+    ap.add_argument("--no-video-filter", action="store_true",
+                    help="[fast mode] Don't require a video-related word in the title.")
+    ap.add_argument("--interval", type=int, default=15, help="Seconds between checks (default: 15). Minimum 10.")
+    ap.add_argument("--req-delay", type=int, default=5, help="[deep mode] Seconds between searches (default/min: 5).")
     ap.add_argument("--once", action="store_true", help="Check once and exit (use with Task Scheduler / cron).")
     ap.add_argument("--state", default="./seen_jobs.json", help="State file path (default: ./seen_jobs.json).")
     ap.add_argument("--notify-existing", action="store_true", help="On the very first run, alert on all current matches (default: just record them).")
@@ -343,23 +364,24 @@ def main() -> int:
         else:
             print(f"{stamp} No new posts.")
 
-    n = len(args.keywords)
     ai_note = "AI-only" if args.require else "AI filter OFF"
-    print(f"[*] Watching OnlineJobs.ph across {n} search term(s) [{ai_note}]"
-          + (f", title must also include: {args.must_include}" if args.must_include else ""))
-    # A full sweep searches every keyword with a polite gap between each.
-    sweep_est = (n - 1) * args.req_delay + n  # ~gaps + ~1s/request
-    cycle_est = sweep_est + args.interval
-    m, s = divmod(cycle_est, 60)
-    pretty_cycle = (f"~{m} min {s}s" if m else f"~{s}s")
+    if args.mode == "fast":
+        vf = "" if args.no_video_filter else " + video"
+        print(f"[*] Watching the newest-jobs feed [{ai_note}{vf}] — FAST mode.")
+    else:
+        print(f"[*] Watching {len(args.keywords)} search term(s) [{ai_note}] — DEEP mode.")
     one_pass()
 
     if args.once:
         return 0
 
-    print(f"[*] Running continuously. It re-scans all {n} terms about every {pretty_cycle} "
-          f"(a {args.req_delay}s gap between searches keeps it polite to the site). "
-          f"Press Ctrl+C to stop.")
+    if args.mode == "fast":
+        cycle = args.interval
+    else:
+        cycle = (len(args.keywords) - 1) * args.req_delay + len(args.keywords) + args.interval
+    m, s = divmod(cycle, 60)
+    pretty = (f"~{m} min {s}s" if m else f"~{s}s")
+    print(f"[*] Running continuously — new posts detected within about {pretty}. Press Ctrl+C to stop.")
     try:
         while True:
             time.sleep(args.interval)
