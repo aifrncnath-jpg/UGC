@@ -87,8 +87,17 @@ to your Discord. 🎯
 so new AI video posts reach your Discord almost immediately. It stays gentle on
 the site (one lightweight request per check, well within the site's crawl delay).
 
-**DEEP mode** (`--mode deep`) is more thorough (searches ~16 keywords, including
-the job description) but slower (~1.5 min per cycle).
+**DEEP mode** (`--mode deep`) is more thorough — it searches these ~21 keywords
+on the site (which also matches the job *description*), then keeps the AI ones:
+
+`ai video editor`, `ai video`, `ai video generation`, `ai video creation`,
+`ai video specialist`, `ai editor`, `ai content creator`, `generative video`,
+`video editor`, `video specialist`, `video producer`, `video content creator`,
+`creative video editor`, `short form video`, `faceless video`, `video ad`,
+`motion graphics`, `ugc`, `ugc video editor`, `vsl`, `video sales letter`.
+
+It's thorough but slower (~2 min per cycle). Edit the list at the top of
+`onlinejobs_watcher.py` (`DEFAULT_KEYWORDS`) anytime.
 
 ---
 

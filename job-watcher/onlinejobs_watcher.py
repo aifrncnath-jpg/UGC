@@ -63,22 +63,30 @@ USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrom
 # Feel free to add or remove lines (keep the quotes and the comma).
 # ----------------------------------------------------------------------------
 DEFAULT_KEYWORDS = [
+    # --- AI-specific ---
     "ai video editor",
     "ai video",
     "ai video generation",
     "ai video creation",
     "ai video specialist",
+    "ai editor",
+    "ai content creator",
+    "generative video",
+    # --- video roles / formats ---
     "video editor",
     "video specialist",
     "video producer",
     "video content creator",
+    "creative video editor",
     "short form video",
     "faceless video",
+    "video ad",
+    "motion graphics",
+    # --- niches you work in ---
     "ugc",
     "ugc video editor",
     "vsl",
     "video sales letter",
-    "motion graphics",
 ]
 
 # A post is only pushed to you if its TITLE contains one of these AI signals.
