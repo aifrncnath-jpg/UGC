@@ -118,8 +118,8 @@ It's thorough but slower (~2 min per cycle). Edit the list at the top of
 | `--must-include word` | Require an extra word in the title too (on top of AI) |
 | `--keywords "a" "b"`  | (deep mode) use your own search terms |
 | `--desktop`           | Also show a pop-up on your computer |
-| `--max-age-hours 72`  | Ignore posts older than this (default 72 = 3 days; 0 = no limit) |
 | `--interval 15`       | Seconds between checks (default 15, minimum 10) |
+| `--max-age-hours 24`  | Optional hard cap: ignore posts older than N hours (0 = off, default) |
 | `--once`              | Check once and exit (for scheduling) |
 | `--state seen.json`   | Where it remembers seen jobs (keep the same path each run) |
 
@@ -155,9 +155,10 @@ Use the `--once` version on a schedule (keep the same `--state` file!):
 - **No alerts** → First run only records a baseline; alerts start on the next new AI post. Test with `--test-alert`.
 - **Same jobs repeating** → Use the **same `--state` file path** each time.
 - **Want ALL video jobs (not just AI/ecommerce)?** → add `--allow-non-ai`.
-- **Seeing old posts (esp. in deep mode)?** It ignores anything older than 3 days
-  by default. Tighten it with e.g. `--max-age-hours 24` (last day only), or widen
-  with `--max-age-hours 168` (last week). Set `--max-age-hours 0` to disable.
+- **Old posts showing up?** They shouldn't — the tool sets a baseline the moment
+  you run it, and only alerts on posts **posted after** that. Old posts (even ones
+  deep mode's search digs up) are never alerted. If you ever want a fresh start,
+  delete `seen_jobs.json`; the next run re-baselines to "now".
 - **Stop it** → click the terminal, press **`Ctrl + C`**.
 
 ---

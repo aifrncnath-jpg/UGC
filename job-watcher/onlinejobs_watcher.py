@@ -327,9 +327,8 @@ def gather_jobs(args) -> list[dict]:
 def check_once(args, state: dict) -> list[dict]:
     jobs = gather_jobs(args)
 
-    # Recency filter: ignore old posts. Deep-mode keyword search is sorted by
-    # relevance (not date), so it can surface months-old posts — this keeps
-    # only recently-posted jobs.
+    # Optional hard age cap (off by default). The main "only new" logic below is
+    # timestamp-based: it only alerts on posts newer than the last one seen.
     jobs = filter_recent(jobs, args.max_age_hours)
 
     # In FAST mode we require a video signal in the title (all we can see).
@@ -358,10 +357,28 @@ def check_once(args, state: dict) -> list[dict]:
         jobs = [j for j in jobs if title_has_any(j["title"], args.must_include)]
 
     seen = set(state.get("seen_ids", []))
-    new_jobs = [j for j in jobs if j["id"] not in seen]
+    last_ref = parse_posted(state.get("last_posted", ""))
 
-    # Remember everything currently visible so we don't re-alert.
+    # Newest post time in this batch — the moving "as of now" reference point.
+    batch_times = [t for t in (parse_posted(j.get("posted", "")) for j in jobs) if t]
+    batch_max = max(batch_times) if batch_times else None
+
+    new_jobs = []
+    for j in jobs:
+        if j["id"] in seen:
+            continue
+        pt = parse_posted(j.get("posted", ""))
+        # A post is NEW only if it was posted AFTER the newest post we'd already
+        # seen. So running it = "from this moment on, only newer posts" — and old
+        # posts that deep mode's relevance search digs up are never alerted.
+        if not args.notify_existing and last_ref is not None and pt is not None and pt <= last_ref:
+            continue
+        new_jobs.append(j)
+
+    # Update memory: seen IDs + the newest post time observed so far.
     state["seen_ids"] = sorted(set(seen) | {j["id"] for j in jobs}, key=lambda x: -int(x))[:5000]
+    if batch_max is not None:
+        state["last_posted"] = (batch_max if last_ref is None else max(batch_max, last_ref)).strftime("%Y-%m-%d %H:%M:%S")
     return new_jobs
 
 
@@ -379,9 +396,9 @@ def main() -> int:
                     help="Turn OFF the AI-only filter (by default, only posts whose title mentions AI are pushed).")
     ap.add_argument("--no-video-filter", action="store_true",
                     help="[fast mode] Don't require a video-related word in the title.")
-    ap.add_argument("--max-age-hours", type=int, default=72,
-                    help="Ignore posts older than this many hours (default: 72 = 3 days; 0 = no limit). "
-                         "Fixes deep mode surfacing old posts.")
+    ap.add_argument("--max-age-hours", type=int, default=0,
+                    help="Optional hard cap: ignore posts older than N hours (0 = off, the default). "
+                         "Not usually needed — the tool already only alerts on posts newer than the last one seen.")
     ap.add_argument("--interval", type=int, default=15, help="Seconds between checks (default: 15). Minimum 10.")
     ap.add_argument("--req-delay", type=int, default=5, help="[deep mode] Seconds between searches (default/min: 5).")
     ap.add_argument("--once", action="store_true", help="Check once and exit (use with Task Scheduler / cron).")
