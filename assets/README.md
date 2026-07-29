@@ -1,55 +1,62 @@
-# Assets
+# Assets — how to add your work
 
-Put your media here.
+## ⭐ The easy way: just drop files in a folder
+
+Put your ad videos (or images) into the matching category folder:
 
 ```
-assets/
-├── videos/     # short looping clips (MP4/WebM) — keep small (< ~5 MB each)
-├── images/     # thumbnails, screenshots, your photo (JPG/PNG/WebP)
+assets/work/
+├── ugc/           ← UGC ads
+├── vsl/           ← Video Sales Letters
+├── influencer/    ← AI influencer videos
+└── 3d/            ← 3D Pixar-style ads
 ```
 
-## 1) Hero video/image (the vertical ad frame)
+That's it. On the next deploy, the site scans these folders and shows every
+file automatically as a card in the Work section — **no code editing.**
 
-Open `index.html`, find `<div class="ad-frame__media">` and replace the inner
-placeholder with EITHER an image or a looping video:
+- **Supported video:** `.mp4`, `.webm`, `.mov`, `.m4v`
+- **Supported images:** `.jpg`, `.png`, `.webp`, `.gif`
+- The card **title comes from the filename**, so name files nicely:
+  `eloix-tallow-balm.mp4` → shows as **"Eloix Tallow Balm"**
+- Use lowercase, dashes instead of spaces.
+- Videos **auto-play on hover** (muted) right in the card.
 
-**Image:**
+> After adding files, run `node build.js` locally (or just let Netlify deploy —
+> it runs it for you) to refresh `work.json`.
+
+### ⚠️ Keep videos small
+Compress ad clips before adding them (aim for a few MB each). For long/full
+videos, it's better to host on YouTube/TikTok and link instead — ask and I'll
+switch a card to a link.
+
+---
+
+## Hero video/image (the vertical ad frame)
+
+In `index.html`, find `<div class="ad-frame__media">` and replace the inner
+placeholder with EITHER:
+
 ```html
 <img class="ad-frame__media" src="assets/images/hero-ad.jpg" alt="ELOIX UGC ad" />
 ```
-
-**Looping video (recommended for motion):**
+or a looping video:
 ```html
-<video class="ad-frame__media" src="assets/videos/hero-ad.mp4"
-       autoplay muted loop playsinline></video>
+<video class="ad-frame__media" src="assets/videos/hero-ad.mp4" autoplay muted loop playsinline></video>
 ```
 
-## 2) Work grid — thumbnails + links
+## Your photo (About section)
 
-Open `script.js` and edit the `projects` array. Each project supports:
-
-| field | what it does |
-|-------|--------------|
-| `img`  | thumbnail shown on the card → `"assets/images/eloix-balm.jpg"` |
-| `link` | makes the card clickable to the real video (YouTube/TikTok/Drive) |
-
-Example:
-```js
-{ title: "ELOIX Tallow Balm — UGC Ad", cat: "ugc", tag: "UGC Ad",
-  meta: "Native UGC · Meta / TikTok",
-  img: "assets/images/eloix-balm.jpg",
-  link: "https://youtube.com/watch?v=XXXX" }
-```
-
-## 3) Your photo (About section)
-
-Add e.g. `assets/images/nathaniel.jpg`, then in `index.html` replace the
-`<div class="avatar__inner">N</div>` content with:
+Add `assets/images/nathaniel.jpg`, then in `index.html` replace
+`<div class="avatar__inner">N</div>` with:
 ```html
 <img class="avatar__inner" src="assets/images/nathaniel.jpg" alt="Nathaniel" />
 ```
 
-## Tips
-- Compress videos before committing (e.g. HandBrake, or `ffmpeg`). Keep the hero clip short + muted.
-- Vertical clips (9:16) fit the hero frame perfectly.
-- Filenames: lowercase, no spaces (use dashes), e.g. `eloix-berberine-vsl.jpg`.
+## Folders
+```
+assets/
+├── work/       # ⭐ drop ad videos/images here (per category) — auto-shown
+├── images/     # hero image, your photo, misc thumbnails
+└── videos/     # hero loop clip, misc
+```

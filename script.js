@@ -34,8 +34,11 @@
     a.addEventListener("click", closeMenu);
   });
 
-  /* ---------- Portfolio data ---------- */
-  var projects = [
+  /* ---------- Portfolio data ----------
+     These demo cards show until you add real files to assets/work/*.
+     Once you drop videos/images in those folders (and deploy), build.js
+     generates work.json and the site uses YOUR files automatically. */
+  var fallbackProjects = [
     { title: "ELOIX Tallow Balm — UGC Ad", cat: "ugc", tag: "UGC Ad", c1: "#3a1c71", c2: "#0c0c16", meta: "Native UGC · Meta / TikTok" },
     { title: "ELOIX Berberine — VSL", cat: "vsl", tag: "VSL", c1: "#0f4c81", c2: "#0c0c16", meta: "Direct-response · supplement" },
     { title: "AI Spokesperson — HemoFlow", cat: "influencer", tag: "AI Influencer", c1: "#642B73", c2: "#0c0c16", meta: "AI avatar · lip-sync" },
@@ -48,25 +51,54 @@
   ];
 
   var grid = document.getElementById("workGrid");
-  function renderProjects() {
-    grid.innerHTML = projects.map(function (p) {
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function renderProjects(list) {
+    grid.innerHTML = list.map(function (p) {
       var tag = p.link ? "a" : "article";
-      var attrs = p.link ? ' href="' + p.link + '" target="_blank" rel="noopener"' : "";
-      var thumb = p.img
-        ? '<img class="work-item__thumb" src="' + p.img + '" alt="' + p.title + '" loading="lazy" />'
-        : "";
-      var playIcon = p.link ? '<div class="work-item__play"><span>&#9654;</span></div>' : "";
+      var attrs = p.link ? ' href="' + esc(p.link) + '" target="_blank" rel="noopener"' : "";
+      var media = "";
+      if (p.video) {
+        media = '<video class="work-item__thumb" src="' + esc(p.video) + '" muted loop playsinline preload="metadata"></video>';
+      } else if (p.img) {
+        media = '<img class="work-item__thumb" src="' + esc(p.img) + '" alt="' + esc(p.title) + '" loading="lazy" />';
+      }
+      var showPlay = p.video || p.link;
+      var playIcon = showPlay ? '<div class="work-item__play"><span>&#9654;</span></div>' : "";
       return (
-        "<" + tag + ' class="work-item reveal" data-cat="' + p.cat + '" style="--c1:' + p.c1 + ';--c2:' + p.c2 + '"' + attrs + ">" +
-          thumb +
+        "<" + tag + ' class="work-item reveal" data-cat="' + esc(p.cat) + '" style="--c1:' + esc(p.c1 || "#1a1a2e") + ';--c2:' + esc(p.c2 || "#0c0c16") + '"' + attrs + ">" +
+          media +
           '<div class="work-item__shine"></div>' +
-          '<span class="work-item__badge">' + p.tag + '</span>' +
+          '<span class="work-item__badge">' + esc(p.tag) + '</span>' +
           playIcon +
-          '<div class="work-item__meta"><h3>' + p.title + '</h3><p>' + p.meta + '</p></div>' +
+          '<div class="work-item__meta"><h3>' + esc(p.title) + '</h3><p>' + esc(p.meta) + '</p></div>' +
         "</" + tag + ">"
       );
     }).join("");
+
+    // Play videos on hover (muted), reset on leave
+    grid.querySelectorAll("video.work-item__thumb").forEach(function (v) {
+      var card = v.closest(".work-item");
+      card.addEventListener("mouseenter", function () { v.play().catch(function () {}); });
+      card.addEventListener("mouseleave", function () { v.pause(); v.currentTime = 0; });
+    });
+
     observeReveals();
+  }
+
+  // Load auto-generated gallery (build.js output); fall back to demo cards.
+  function loadWork() {
+    fetch("work.json", { cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : []; })
+      .then(function (items) {
+        renderProjects(Array.isArray(items) && items.length ? items : fallbackProjects);
+      })
+      .catch(function () { renderProjects(fallbackProjects); });
   }
 
   /* ---------- Filters ---------- */
@@ -140,6 +172,6 @@
   });
 
   /* ---------- Init ---------- */
-  renderProjects();
+  loadWork();
   observeReveals();
 })();

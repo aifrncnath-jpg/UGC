@@ -1,0 +1,8 @@
+# Netlify configuration
+# On every deploy, Netlify runs build.js which scans assets/work/*
+# and regenerates work.json — so dropping a file in a folder makes it
+# show up on the site with no code changes.
+
+[build]
+  command = "node build.js"
+  publish = "."
