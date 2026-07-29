@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="AI Video Specialist & Editor — cinematic edits, generative video, motion design and AI-powered post-production. Available for freelance & collaborations." />
+  <meta name="theme-color" content="#0a0a0f" />
+  <title>Alex Rivera — AI Video Specialist</title>
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="Alex Rivera — AI Video Specialist" />
+  <meta property="og:description" content="Cinematic AI-powered video editing, generative video & motion design." />
+  <meta property="og:type" content="website" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>" />
+</head>
+<body>
+  <!-- Animated background -->
+  <div class="bg-grid" aria-hidden="true"></div>
+  <div class="bg-glow" aria-hidden="true"></div>
+
+  <!-- Navbar -->
+  <header class="nav" id="nav">
+    <div class="container nav__inner">
+      <a href="#home" class="brand">
+        <span class="brand__mark">◆</span>
+        <span class="brand__name">Alex<span class="accent">Rivera</span></span>
+      </a>
+
+      <nav class="nav__links" id="navLinks" aria-label="Primary">
+        <a href="#services">Services</a>
+        <a href="#work">Work</a>
+        <a href="#toolkit">Toolkit</a>
+        <a href="#process">Process</a>
+        <a href="#about">About</a>
+        <a href="#contact" class="btn btn--ghost btn--sm">Let's talk</a>
+      </nav>
+
+      <button class="nav__toggle" id="navToggle" aria-label="Toggle menu" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <!-- Hero -->
+    <section class="hero" id="home">
+      <div class="container hero__inner">
+        <div class="hero__content reveal">
+          <span class="eyebrow"><span class="dot"></span> Available for freelance & collaborations</span>
+          <h1 class="hero__title">
+            I craft <span class="grad-text">cinematic stories</span> with the power of AI video.
+          </h1>
+          <p class="hero__lead">
+            AI Video Specialist & Editor blending generative video, motion design and
+            next-gen post-production to turn ideas into scroll-stopping visuals — faster,
+            bolder and at a fraction of traditional cost.
+          </p>
+          <div class="hero__actions">
+            <a href="#work" class="btn btn--primary">
+              View my work <span aria-hidden="true">→</span>
+            </a>
+            <button class="btn btn--play" data-open-reel>
+              <span class="play-icon" aria-hidden="true">▶</span> Watch showreel
+            </button>
+          </div>
+
+          <div class="hero__meta">
+            <div><strong>6+</strong><span>Years editing</span></div>
+            <div><strong>420+</strong><span>Projects delivered</span></div>
+            <div><strong>50M+</strong><span>Views generated</span></div>
+          </div>
+        </div>
+
+        <div class="hero__visual reveal">
+          <div class="reel-card" data-open-reel role="button" tabindex="0" aria-label="Play showreel">
+            <div class="reel-card__glow"></div>
+            <div class="reel-card__play"><span aria-hidden="true">▶</span></div>
+            <div class="reel-card__bars" aria-hidden="true">
+              <span></span><span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span><span></span>
+            </div>
+            <div class="reel-card__label">2026 SHOWREEL · 01:48</div>
+          </div>
+          <div class="float-chip chip--1">🎞️ Runway Gen-3</div>
+          <div class="float-chip chip--2">🎙️ AI Voiceover</div>
+          <div class="float-chip chip--3">✨ 4K Upscale</div>
+        </div>
+      </div>
+
+      <!-- Marquee of tools -->
+      <div class="marquee" aria-hidden="true">
+        <div class="marquee__track">
+          <span>RUNWAY</span><span>•</span><span>SORA</span><span>•</span><span>MIDJOURNEY</span><span>•</span>
+          <span>ELEVENLABS</span><span>•</span><span>PIKA</span><span>•</span><span>AFTER EFFECTS</span><span>•</span>
+          <span>DAVINCI RESOLVE</span><span>•</span><span>KLING</span><span>•</span><span>PREMIERE PRO</span><span>•</span>
+          <span>RUNWAY</span><span>•</span><span>SORA</span><span>•</span><span>MIDJOURNEY</span><span>•</span>
+          <span>ELEVENLABS</span><span>•</span><span>PIKA</span><span>•</span><span>AFTER EFFECTS</span><span>•</span>
+          <span>DAVINCI RESOLVE</span><span>•</span><span>KLING</span><span>•</span><span>PREMIERE PRO</span><span>•</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Services -->
+    <section class="section" id="services">
+      <div class="container">
+        <div class="section__head reveal">
+          <span class="kicker">What I offer</span>
+          <h2 class="section__title">Services built for the <span class="grad-text">AI era</span></h2>
+          <p class="section__sub">End-to-end video production that merges human storytelling with generative AI — so you get standout content without the standout timeline or budget.</p>
+        </div>
+
+        <div class="grid grid--services">
+          <article class="card service reveal">
+            <div class="service__icon">🎬</div>
+            <h3>AI Video Editing</h3>
+            <p>Fast, cinematic edits with AI-assisted cutting, color grading and audio cleanup. Perfect for ads, YouTube and social.</p>
+            <ul class="tags"><li>Premiere</li><li>DaVinci</li><li>Auto-cut</li></ul>
+          </article>
+
+          <article class="card service reveal">
+            <div class="service__icon">🌀</div>
+            <h3>Generative Video</h3>
+            <p>Text-to-video and image-to-video scenes with Runway, Sora, Pika & Kling — visuals that were impossible to shoot.</p>
+            <ul class="tags"><li>Runway</li><li>Sora</li><li>Pika</li></ul>
+          </article>
+
+          <article class="card service reveal">
+            <div class="service__icon">🎙️</div>
+            <h3>AI Voice & Audio</h3>
+            <p>Natural AI voiceovers, dubbing, localization and sound design with ElevenLabs and pro mixing.</p>
+            <ul class="tags"><li>ElevenLabs</li><li>Dubbing</li><li>SFX</li></ul>
+          </article>
+
+          <article class="card service reveal">
+            <div class="service__icon">✨</div>
+            <h3>Motion & VFX</h3>
+            <p>Motion graphics, kinetic typography, AI rotoscoping and clean-up, plus 4K upscaling and frame interpolation.</p>
+            <ul class="tags"><li>After Effects</li><li>Roto</li><li>Upscale</li></ul>
+          </article>
+
+          <article class="card service reveal">
+            <div class="service__icon">📱</div>
+            <h3>Short-Form Content</h3>
+            <p>Reels, TikToks & Shorts engineered for retention — hooks, captions and pacing that stop the scroll.</p>
+            <ul class="tags"><li>Reels</li><li>Shorts</li><li>Captions</li></ul>
+          </article>
+
+          <article class="card service reveal">
+            <div class="service__icon">🧠</div>
+            <h3>AI Creative Direction</h3>
+            <p>Concept, storyboards and prompt engineering to define a look and pipeline for your brand from scratch.</p>
+            <ul class="tags"><li>Storyboard</li><li>Prompting</li><li>Style</li></ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Work / Portfolio -->
+    <section class="section section--work" id="work">
+      <div class="container">
+        <div class="section__head reveal">
+          <span class="kicker">Selected work</span>
+          <h2 class="section__title">Projects that <span class="grad-text">move people</span></h2>
+          <p class="section__sub">A snapshot of recent AI-powered edits and generative pieces. Filter by category.</p>
+        </div>
+
+        <div class="filters reveal" role="tablist" aria-label="Portfolio filters">
+          <button class="filter is-active" data-filter="all">All</button>
+          <button class="filter" data-filter="ads">Ads & Brand</button>
+          <button class="filter" data-filter="music">Music Videos</button>
+          <button class="filter" data-filter="short">Short-Form</button>
+          <button class="filter" data-filter="vfx">Generative / VFX</button>
+        </div>
+
+        <div class="grid grid--work" id="workGrid">
+          <!-- cards injected here + fallback static markup -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Toolkit -->
+    <section class="section" id="toolkit">
+      <div class="container">
+        <div class="section__head reveal">
+          <span class="kicker">My AI toolkit</span>
+          <h2 class="section__title">The stack I use to <span class="grad-text">ship faster</span></h2>
+          <p class="section__sub">A battle-tested pipeline of generative and pro tools — chosen for quality, speed and control.</p>
+        </div>
+
+        <div class="grid grid--tools">
+          <div class="tool reveal"><span class="tool__logo">🎞️</span><div><strong>Runway Gen-3</strong><small>Text/Image-to-Video</small></div></div>
+          <div class="tool reveal"><span class="tool__logo">🎥</span><div><strong>Sora</strong><small>Cinematic generation</small></div></div>
+          <div class="tool reveal"><span class="tool__logo">🖼️</span><div><strong>Midjourney</strong><small>Concept & frames</small></div></div>
+          <div class="tool reveal"><span class="tool__logo">🎙️</span><div><strong>ElevenLabs</strong><small>Voice & dubbing</small></div></div>
+          <div class="tool reveal"><span class="tool__logo">⚡</span><div><strong>Pika / Kling</strong><small>Motion & effects</small></div></div>
+          <div class="tool reveal"><span class="tool__logo">🎬</span><div><strong>Premiere Pro</strong><small>Editing suite</small></div></div>
+          <div class="tool reveal"><span class="tool__logo">🎨</span><div><strong>After Effects</strong><small>Motion & VFX</small></div></div>
+          <div class="tool reveal"><span class="tool__logo">🌈</span><div><strong>DaVinci Resolve</strong><small>Color grading</small></div></div>
+          <div class="tool reveal"><span class="tool__logo">🔊</span><div><strong>Adobe Audition</strong><small>Sound design</small></div></div>
+          <div class="tool reveal"><span class="tool__logo">🔍</span><div><strong>Topaz Video AI</strong><small>4K upscaling</small></div></div>
+        </div>
+
+        <div class="skillbars reveal">
+          <div class="skillbar"><label>AI Generative Video</label><div class="bar"><i style="--w:96%"></i></div></div>
+          <div class="skillbar"><label>Editing & Storytelling</label><div class="bar"><i style="--w:98%"></i></div></div>
+          <div class="skillbar"><label>Motion Graphics & VFX</label><div class="bar"><i style="--w:90%"></i></div></div>
+          <div class="skillbar"><label>Color Grading</label><div class="bar"><i style="--w:88%"></i></div></div>
+          <div class="skillbar"><label>Sound & AI Voice</label><div class="bar"><i style="--w:92%"></i></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Process -->
+    <section class="section section--process" id="process">
+      <div class="container">
+        <div class="section__head reveal">
+          <span class="kicker">How we work</span>
+          <h2 class="section__title">A simple, <span class="grad-text">transparent process</span></h2>
+        </div>
+
+        <div class="steps">
+          <div class="step reveal"><span class="step__no">01</span><h3>Discovery</h3><p>We align on goals, audience, references and the story you want to tell.</p></div>
+          <div class="step reveal"><span class="step__no">02</span><h3>Concept & Prompts</h3><p>I design the look, storyboard scenes and engineer the AI pipeline.</p></div>
+          <div class="step reveal"><span class="step__no">03</span><h3>Generation & Edit</h3><p>Generative footage, editing, motion, grade, voice and sound — assembled.</p></div>
+          <div class="step reveal"><span class="step__no">04</span><h3>Delivery</h3><p>Reviews, revisions and final exports optimized for every platform.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- About -->
+    <section class="section" id="about">
+      <div class="container about">
+        <div class="about__visual reveal">
+          <div class="avatar">
+            <div class="avatar__ring"></div>
+            <div class="avatar__inner">AR</div>
+          </div>
+          <div class="about__badges">
+            <span>🏆 Best AI Short 2025</span>
+            <span>📈 50M+ views</span>
+          </div>
+        </div>
+        <div class="about__content reveal">
+          <span class="kicker">About me</span>
+          <h2 class="section__title">Editor first, <span class="grad-text">AI-native</span> always</h2>
+          <p>I'm Alex — a video editor who fell in love with what AI unlocks for storytelling. Over the last 6 years I've cut everything from national ad campaigns to viral shorts, and today I combine that craft with generative tools to help brands and creators produce more, faster, without losing soul.</p>
+          <p>My philosophy is simple: <strong>AI is the brush, not the artist.</strong> Great pacing, taste and story still win — AI just lets us get there in days instead of weeks.</p>
+          <div class="about__cta">
+            <a href="#contact" class="btn btn--primary">Work with me</a>
+            <a href="#work" class="btn btn--ghost">See the work</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Testimonials -->
+    <section class="section section--quotes">
+      <div class="container">
+        <div class="section__head reveal">
+          <span class="kicker">Kind words</span>
+          <h2 class="section__title">Trusted by brands & creators</h2>
+        </div>
+        <div class="grid grid--quotes">
+          <blockquote class="quote reveal">
+            <p>"Alex delivered a full AI ad campaign in 4 days that would've taken us a month. The quality blew our team away."</p>
+            <footer><strong>Sofia Chen</strong><span>Marketing Lead, Nova Fitness</span></footer>
+          </blockquote>
+          <blockquote class="quote reveal">
+            <p>"The generative visuals were unlike anything we could shoot. Our launch video hit 2M views in a week."</p>
+            <footer><strong>Marcus Bell</strong><span>Founder, Lumen App</span></footer>
+          </blockquote>
+          <blockquote class="quote reveal">
+            <p>"Reliable, fast and genuinely creative. Alex understands story first and uses AI to amplify it."</p>
+            <footer><strong>Priya Nair</strong><span>Creative Director, Studio 9</span></footer>
+          </blockquote>
+        </div>
+      </div>
+    </section>
+
+    <!-- Contact -->
+    <section class="section section--contact" id="contact">
+      <div class="container">
+        <div class="contact-card reveal">
+          <div class="contact-card__left">
+            <span class="kicker">Let's create</span>
+            <h2 class="section__title">Got a project in mind?</h2>
+            <p>Tell me about your idea and I'll get back within 24 hours with how we can bring it to life.</p>
+            <ul class="contact-list">
+              <li><span>✉️</span> hello@alexrivera.video</li>
+              <li><span>📍</span> Remote · Worldwide</li>
+              <li><span>⏱️</span> Avg. reply in 24h</li>
+            </ul>
+            <div class="socials">
+              <a href="#" aria-label="YouTube">YT</a>
+              <a href="#" aria-label="Instagram">IG</a>
+              <a href="#" aria-label="LinkedIn">IN</a>
+              <a href="#" aria-label="X">X</a>
+            </div>
+          </div>
+
+          <form class="contact-form" id="contactForm" novalidate>
+            <div class="field">
+              <label for="name">Name</label>
+              <input type="text" id="name" name="name" placeholder="Jane Doe" required />
+            </div>
+            <div class="field">
+              <label for="email">Email</label>
+              <input type="email" id="email" name="email" placeholder="jane@company.com" required />
+            </div>
+            <div class="field">
+              <label for="type">Project type</label>
+              <select id="type" name="type">
+                <option>AI Video Editing</option>
+                <option>Generative / VFX</option>
+                <option>Short-Form Content</option>
+                <option>Ad / Brand Campaign</option>
+                <option>Something else</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="message">Message</label>
+              <textarea id="message" name="message" rows="4" placeholder="Tell me about your project, timeline and budget…" required></textarea>
+            </div>
+            <button type="submit" class="btn btn--primary btn--full">Send message →</button>
+            <p class="form-note" id="formNote" hidden>✅ Thanks! Your message has been captured. I'll reply within 24 hours.</p>
+          </form>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer__inner">
+      <a href="#home" class="brand"><span class="brand__mark">◆</span><span class="brand__name">Alex<span class="accent">Rivera</span></span></a>
+      <p>AI Video Specialist · Cinematic edits, generative video & motion design.</p>
+      <p class="footer__copy">© <span id="year"></span> Alex Rivera. Crafted with AI + taste.</p>
+    </div>
+  </footer>
+
+  <!-- Showreel modal -->
+  <div class="modal" id="reelModal" hidden>
+    <div class="modal__backdrop" data-close-reel></div>
+    <div class="modal__body" role="dialog" aria-modal="true" aria-label="Showreel">
+      <button class="modal__close" data-close-reel aria-label="Close">✕</button>
+      <div class="modal__video">
+        <div class="modal__placeholder">
+          <div class="reel-card__play"><span aria-hidden="true">▶</span></div>
+          <p>Drop your showreel here</p>
+          <small>Replace this with a YouTube/Vimeo embed or a &lt;video&gt; tag in <code>index.html</code></small>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
