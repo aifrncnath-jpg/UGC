@@ -66,9 +66,7 @@
             <a href="#work" class="btn btn--primary">
               View my work <span aria-hidden="true">→</span>
             </a>
-            <button class="btn btn--play" data-open-reel>
-              <span class="play-icon" aria-hidden="true">▶</span> Watch showreel
-            </button>
+            <a href="#contact" class="btn btn--ghost">Work with me</a>
           </div>
 
           <div class="hero__meta">
@@ -79,17 +77,20 @@
         </div>
 
         <div class="hero__visual reveal">
-          <div class="reel-card" data-open-reel role="button" tabindex="0" aria-label="Play showreel">
-            <div class="reel-card__glow"></div>
-            <div class="reel-card__play"><span aria-hidden="true">▶</span></div>
-            <div class="reel-card__bars" aria-hidden="true">
-              <span></span><span></span><span></span><span></span><span></span>
-              <span></span><span></span><span></span><span></span><span></span>
+          <!-- Minimalist vertical ad frame. Swap the inner .ad-frame__media
+               for an <img> or looping <video> of one of your best ads. -->
+          <div class="ad-frame">
+            <div class="ad-frame__notch" aria-hidden="true"></div>
+            <div class="ad-frame__media">
+              <div class="ad-frame__glow"></div>
+              <span class="ad-frame__tag">UGC · Vertical Ad</span>
+              <div class="ad-frame__bottom">
+                <p class="ad-frame__cap">"Sold out in 3 days."</p>
+                <span class="ad-frame__cta">Shop now</span>
+              </div>
             </div>
-            <div class="reel-card__label">SHOWREEL · UGC · VSL · 3D</div>
           </div>
           <div class="float-chip chip--1">🛍️ UGC Ads</div>
-          <div class="float-chip chip--2">🎙️ AI Voiceover</div>
           <div class="float-chip chip--3">🧸 3D Pixar</div>
         </div>
       </div>
@@ -346,21 +347,6 @@
       <p class="footer__copy">© <span id="year"></span> Nathaniel. Crafted with AI + taste.</p>
     </div>
   </footer>
-
-  <!-- Showreel modal -->
-  <div class="modal" id="reelModal" hidden>
-    <div class="modal__backdrop" data-close-reel></div>
-    <div class="modal__body" role="dialog" aria-modal="true" aria-label="Showreel">
-      <button class="modal__close" data-close-reel aria-label="Close">✕</button>
-      <div class="modal__video">
-        <div class="modal__placeholder">
-          <div class="reel-card__play"><span aria-hidden="true">▶</span></div>
-          <p>Drop your showreel here</p>
-          <small>Replace this with a YouTube/Vimeo embed or a &lt;video&gt; tag in <code>index.html</code></small>
-        </div>
-      </div>
-    </div>
-  </div>
 
   <script src="script.js"></script>
 </body>

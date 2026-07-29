@@ -154,42 +154,46 @@ button { font-family: inherit; cursor: pointer; }
 .hero__meta strong { font-family: var(--display); font-size: 1.9rem; display: block; }
 .hero__meta span { color: var(--muted); font-size: .9rem; }
 
-/* Hero visual reel card */
-.hero__visual { position: relative; }
-.reel-card {
-  position: relative; aspect-ratio: 4/5; border-radius: var(--radius-lg);
-  background: linear-gradient(160deg, #16162a, #0c0c16);
-  border: 1px solid var(--border-strong); overflow: hidden; cursor: pointer;
-  display: grid; place-items: center; box-shadow: var(--shadow);
-  transition: transform .5s var(--ease);
+/* Hero visual — minimalist vertical ad frame */
+.hero__visual { position: relative; display: grid; place-items: center; }
+.ad-frame {
+  position: relative; width: min(300px, 78vw); aspect-ratio: 9/16;
+  border-radius: 34px; padding: 12px;
+  background: linear-gradient(160deg, #1c1c2e, #0b0b14);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow), 0 0 0 1px rgba(255,255,255,.03) inset;
+  transition: transform .6s var(--ease);
 }
-.reel-card:hover { transform: perspective(900px) rotateY(-4deg) rotateX(3deg) translateY(-6px); }
-.reel-card__glow {
-  position: absolute; inset: -40%; background: var(--grad); opacity: .28;
-  filter: blur(60px); animation: floatGlow 10s ease-in-out infinite alternate;
+.ad-frame:hover { transform: perspective(1100px) rotateY(-5deg) rotateX(3deg) translateY(-8px); }
+.ad-frame__notch {
+  position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+  width: 92px; height: 7px; border-radius: 100px; background: rgba(255,255,255,.14); z-index: 3;
 }
-.reel-card__play {
-  position: relative; z-index: 2; width: 84px; height: 84px; border-radius: 50%;
-  display: grid; place-items: center; font-size: 1.6rem; color: #0a0a0f;
-  background: #fff; box-shadow: 0 14px 40px -10px rgba(0,0,0,.6);
-  transition: transform .3s var(--ease);
+.ad-frame__media {
+  position: relative; height: 100%; border-radius: 24px; overflow: hidden;
+  background: linear-gradient(160deg, #2a1a4d 0%, #10233f 55%, #0c0c16 100%);
+  display: flex; flex-direction: column; justify-content: flex-end;
 }
-.reel-card:hover .reel-card__play { transform: scale(1.1); }
-.reel-card__bars {
-  position: absolute; bottom: 54px; left: 0; right: 0; z-index: 2;
-  display: flex; align-items: flex-end; justify-content: center; gap: 6px; height: 60px;
+/* If you swap in an <img> or <video class="ad-frame__media"> it fills the frame */
+img.ad-frame__media, video.ad-frame__media { object-fit: cover; }
+.ad-frame__glow {
+  position: absolute; inset: -30%; background: var(--grad); opacity: .30;
+  filter: blur(55px); animation: floatGlow 11s ease-in-out infinite alternate;
 }
-.reel-card__bars span {
-  width: 6px; background: var(--grad); border-radius: 4px;
-  animation: eq 1.2s ease-in-out infinite;
+.ad-frame__tag {
+  position: absolute; top: 16px; left: 16px; z-index: 2;
+  font-size: .68rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+  padding: 6px 12px; border-radius: 100px;
+  background: rgba(10,10,15,.55); backdrop-filter: blur(8px); border: 1px solid var(--border-strong);
 }
-.reel-card__bars span:nth-child(odd) { animation-delay: .2s; }
-.reel-card__bars span:nth-child(3n) { animation-delay: .4s; }
-.reel-card__bars span:nth-child(4n) { animation-delay: .6s; }
-@keyframes eq { 0%,100% { height: 12px; } 50% { height: 46px; } }
-.reel-card__label {
-  position: absolute; bottom: 20px; z-index: 2; font-family: var(--display);
-  font-size: .78rem; letter-spacing: .18em; color: var(--muted);
+.ad-frame__bottom {
+  position: relative; z-index: 2; padding: 20px 18px;
+  background: linear-gradient(transparent, rgba(8,8,14,.85));
+}
+.ad-frame__cap { font-family: var(--display); font-weight: 700; font-size: 1.15rem; line-height: 1.25; }
+.ad-frame__cta {
+  display: inline-block; margin-top: 12px; font-size: .8rem; font-weight: 600; color: #0a0a0f;
+  background: #fff; padding: 8px 16px; border-radius: 100px;
 }
 
 .float-chip {
@@ -252,10 +256,11 @@ button { font-family: inherit; cursor: pointer; }
 .grid--work { grid-template-columns: repeat(3, 1fr); }
 .work-item {
   position: relative; aspect-ratio: 16/11; border-radius: var(--radius); overflow: hidden;
-  border: 1px solid var(--border); cursor: pointer;
+  border: 1px solid var(--border);
   background: linear-gradient(160deg, var(--c1, #1a1a2e), var(--c2, #0c0c16));
   transition: transform .45s var(--ease), border-color .4s;
 }
+a.work-item { cursor: pointer; }
 .work-item:hover { transform: translateY(-6px); border-color: var(--border-strong); }
 .work-item__shine { position: absolute; inset: 0; background: var(--grad); opacity: .18; mix-blend-mode: screen; transition: opacity .4s; }
 .work-item:hover .work-item__shine { opacity: .34; }

@@ -50,17 +50,17 @@
   var grid = document.getElementById("workGrid");
   function renderProjects() {
     grid.innerHTML = projects.map(function (p) {
+      var tag = p.link ? "a" : "article";
+      var attrs = p.link ? ' href="' + p.link + '" target="_blank" rel="noopener"' : "";
       return (
-        '<article class="work-item reveal" data-cat="' + p.cat + '" style="--c1:' + p.c1 + ';--c2:' + p.c2 + '" data-open-reel>' +
+        "<" + tag + ' class="work-item reveal" data-cat="' + p.cat + '" style="--c1:' + p.c1 + ';--c2:' + p.c2 + '"' + attrs + ">" +
           '<div class="work-item__shine"></div>' +
           '<span class="work-item__badge">' + p.tag + '</span>' +
-          '<div class="work-item__play"><span>&#9654;</span></div>' +
           '<div class="work-item__meta"><h3>' + p.title + '</h3><p>' + p.meta + '</p></div>' +
-        '</article>'
+        "</" + tag + ">"
       );
     }).join("");
     observeReveals();
-    bindReelTriggers();
   }
 
   /* ---------- Filters ---------- */
@@ -110,33 +110,6 @@
     document.querySelectorAll(".skillbar").forEach(function (el) { barObs.observe(el); });
   }
 
-  /* ---------- Showreel modal ---------- */
-  var modal = document.getElementById("reelModal");
-  function openReel() {
-    modal.hidden = false;
-    document.body.style.overflow = "hidden";
-  }
-  function closeReel() {
-    modal.hidden = true;
-    document.body.style.overflow = "";
-  }
-  function bindReelTriggers() {
-    document.querySelectorAll("[data-open-reel]").forEach(function (el) {
-      if (el.__bound) return;
-      el.__bound = true;
-      el.addEventListener("click", openReel);
-      el.addEventListener("keydown", function (e) {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openReel(); }
-      });
-    });
-  }
-  document.querySelectorAll("[data-close-reel]").forEach(function (el) {
-    el.addEventListener("click", closeReel);
-  });
-  document.addEventListener("keydown", function (e) {
-    if (e.key === "Escape" && !modal.hidden) closeReel();
-  });
-
   /* ---------- Contact form ---------- */
   var form = document.getElementById("contactForm");
   var note = document.getElementById("formNote");
@@ -163,5 +136,4 @@
   /* ---------- Init ---------- */
   renderProjects();
   observeReveals();
-  bindReelTriggers();
 })();
