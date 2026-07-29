@@ -47,7 +47,8 @@
     { title: "Berberine — AI Creator", cat: "influencer", tag: "AI Influencer", c1: "#8E2DE2", c2: "#0c0c16", meta: "Talking-head · Veo + Omniflash" },
     { title: "Wellness Offer — VSL", cat: "vsl", tag: "VSL", c1: "#1a2980", c2: "#0c0c16", meta: "Long-form · hook to offer" },
     { title: "Product Reveal — 3D Pixar", cat: "3d", tag: "3D Pixar", c1: "#e52d27", c2: "#0c0c16", meta: "Playful 3D animation" },
-    { title: "Founder Story — UGC", cat: "ugc", tag: "UGC Ad", c1: "#0575E6", c2: "#0c0c16", meta: "Authentic · brand story" }
+    { title: "Founder Story — UGC", cat: "ugc", tag: "UGC Ad", c1: "#0575E6", c2: "#0c0c16", meta: "Authentic · brand story" },
+    { title: "Wellness Talk — Podcast Style", cat: "podcast", tag: "Podcast Style", c1: "#0e7c66", c2: "#0c0c16", meta: "AI podcast clip · captions" }
   ];
 
   var grid = document.getElementById("workGrid");

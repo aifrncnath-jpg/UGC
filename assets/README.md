@@ -9,8 +9,13 @@ assets/work/
 ├── ugc/           ← UGC ads
 ├── vsl/           ← Video Sales Letters
 ├── influencer/    ← AI influencer videos
-└── 3d/            ← 3D Pixar-style ads
+├── 3d/            ← 3D Pixar-style ads
+└── podcast/       ← Podcast-style videos
 ```
+
+Name numbered files like `ugc-1.mp4`, `ugc-2.mp4`, `vsl-1.mp4`, `3d-1.mp4`,
+`podcast-1.mp4` and they show up as clean titles: **"UGC Ad 1", "VSL 1",
+"3D Pixar 1", "Podcast Style 1"** — in order.
 
 That's it. On the next deploy, the site scans these folders and shows every
 file automatically as a card in the Work section — **no code editing.**
