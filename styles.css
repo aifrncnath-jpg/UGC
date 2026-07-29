@@ -320,6 +320,10 @@ button { font-family: inherit; cursor: pointer; }
 .quote p { margin: 22px 0 20px; font-size: 1.02rem; }
 .quote footer strong { font-family: var(--display); display: block; }
 .quote footer span { color: var(--muted); font-size: .88rem; }
+.quote--plain::before { content: none; }
+.quote--plain .quote__icon { font-size: 1.9rem; margin-bottom: 12px; }
+.quote--plain h3 { font-family: var(--display); font-size: 1.2rem; margin-bottom: 8px; }
+.quote--plain p { margin: 0; color: var(--muted); font-size: .98rem; }
 
 /* Contact */
 .contact-card { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; background: var(--surface); }

@@ -36,15 +36,15 @@
 
   /* ---------- Portfolio data ---------- */
   var projects = [
-    { title: "Nova Fitness — AI Ad Campaign", cat: "ads", tag: "Ads & Brand", c1: "#3a1c71", c2: "#0c0c16", meta: "30s spot · Runway + AE" },
-    { title: "Echoes — AI Music Video", cat: "music", tag: "Music Video", c1: "#642B73", c2: "#0c0c16", meta: "Generative visuals · Kling" },
-    { title: "Lumen App Launch", cat: "ads", tag: "Product", c1: "#0f4c81", c2: "#0c0c16", meta: "Launch film · Sora" },
-    { title: "Neon Dreams — Short", cat: "short", tag: "Short-Form", c1: "#e52d27", c2: "#0c0c16", meta: "Vertical reel · 4.2M views" },
-    { title: "Synthetica — VFX Reel", cat: "vfx", tag: "Generative", c1: "#1a2980", c2: "#0c0c16", meta: "AI VFX + roto" },
-    { title: "Wanderlust Travel", cat: "ads", tag: "Ads & Brand", c1: "#16a085", c2: "#0c0c16", meta: "Brand film · upscaled 4K" },
-    { title: "Pulse — Beat Visualizer", cat: "music", tag: "Music Video", c1: "#8E2DE2", c2: "#0c0c16", meta: "Reactive motion · AE" },
-    { title: "Morning Ritual — TikTok", cat: "short", tag: "Short-Form", c1: "#f7971e", c2: "#0c0c16", meta: "Series · 1.1M followers" },
-    { title: "Dreamscape — AI Film", cat: "vfx", tag: "Generative", c1: "#0575E6", c2: "#0c0c16", meta: "Text-to-video short" }
+    { title: "ELOIX Tallow Balm — UGC Ad", cat: "ugc", tag: "UGC Ad", c1: "#3a1c71", c2: "#0c0c16", meta: "Native UGC · Meta / TikTok" },
+    { title: "ELOIX Berberine — VSL", cat: "vsl", tag: "VSL", c1: "#0f4c81", c2: "#0c0c16", meta: "Direct-response · supplement" },
+    { title: "AI Spokesperson — HemoFlow", cat: "influencer", tag: "AI Influencer", c1: "#642B73", c2: "#0c0c16", meta: "AI avatar · lip-sync" },
+    { title: "Tallow Balm — 3D Pixar Ad", cat: "3d", tag: "3D Pixar", c1: "#f7971e", c2: "#0c0c16", meta: "Stylized 3D product spot" },
+    { title: "Skincare Routine — UGC", cat: "ugc", tag: "UGC Ad", c1: "#16a085", c2: "#0c0c16", meta: "Testimonial-style · vertical" },
+    { title: "Berberine — AI Creator", cat: "influencer", tag: "AI Influencer", c1: "#8E2DE2", c2: "#0c0c16", meta: "Talking-head · Veo + Omni" },
+    { title: "Wellness Offer — VSL", cat: "vsl", tag: "VSL", c1: "#1a2980", c2: "#0c0c16", meta: "Long-form · hook to offer" },
+    { title: "Product Reveal — 3D Pixar", cat: "3d", tag: "3D Pixar", c1: "#e52d27", c2: "#0c0c16", meta: "Playful 3D animation" },
+    { title: "Founder Story — UGC", cat: "ugc", tag: "UGC Ad", c1: "#0575E6", c2: "#0c0c16", meta: "Authentic · brand story" }
   ];
 
   var grid = document.getElementById("workGrid");
