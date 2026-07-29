@@ -52,10 +52,16 @@
     grid.innerHTML = projects.map(function (p) {
       var tag = p.link ? "a" : "article";
       var attrs = p.link ? ' href="' + p.link + '" target="_blank" rel="noopener"' : "";
+      var thumb = p.img
+        ? '<img class="work-item__thumb" src="' + p.img + '" alt="' + p.title + '" loading="lazy" />'
+        : "";
+      var playIcon = p.link ? '<div class="work-item__play"><span>&#9654;</span></div>' : "";
       return (
         "<" + tag + ' class="work-item reveal" data-cat="' + p.cat + '" style="--c1:' + p.c1 + ';--c2:' + p.c2 + '"' + attrs + ">" +
+          thumb +
           '<div class="work-item__shine"></div>' +
           '<span class="work-item__badge">' + p.tag + '</span>' +
+          playIcon +
           '<div class="work-item__meta"><h3>' + p.title + '</h3><p>' + p.meta + '</p></div>' +
         "</" + tag + ">"
       );

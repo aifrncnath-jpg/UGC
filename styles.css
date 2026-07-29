@@ -261,6 +261,7 @@ img.ad-frame__media, video.ad-frame__media { object-fit: cover; }
   transition: transform .45s var(--ease), border-color .4s;
 }
 a.work-item { cursor: pointer; }
+.work-item__thumb { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; }
 .work-item:hover { transform: translateY(-6px); border-color: var(--border-strong); }
 .work-item__shine { position: absolute; inset: 0; background: var(--grad); opacity: .18; mix-blend-mode: screen; transition: opacity .4s; }
 .work-item:hover .work-item__shine { opacity: .34; }
