@@ -1,6 +1,6 @@
 # Assets — how to add your work
 
-## ⭐ The easy way: just drop files in a folder
+## ⭐ Just drop files in a folder (no build, no code)
 
 Put your ad videos (or images) into the matching category folder:
 
@@ -13,27 +13,36 @@ assets/work/
 └── podcast/       ← Podcast-style videos
 ```
 
-Name numbered files like `ugc-1.mp4`, `ugc-2.mp4`, `vsl-1.mp4`, `3d-1.mp4`,
-`podcast-1.mp4` and they show up as clean titles: **"UGC Ad 1", "VSL 1",
-"3D Pixar 1", "Podcast Style 1"** — in order.
+**Name them by number** and they appear in order with clean titles:
 
-That's it. On the next deploy, the site scans these folders and shows every
-file automatically as a card in the Work section — **no code editing.**
+| File you drop in `assets/work/ugc/` | Shows on site as |
+|-------------------------------------|------------------|
+| `ugc-1.mp4` | UGC Ad 1 |
+| `ugc-2.mp4` | UGC Ad 2 |
+| `podcast-1.mp4` (in `podcast/`) | Podcast Style 1 |
+| `3d-1.mp4` (in `3d/`) | 3D Pixar 1 |
 
-- **Supported video:** `.mp4`, `.webm`, `.mov`, `.m4v`
-- **Supported images:** `.jpg`, `.png`, `.webp`, `.gif`
-- The card **title comes from the filename**, so name files nicely:
-  `eloix-tallow-balm.mp4` → shows as **"Eloix Tallow Balm"**
-- Use lowercase, dashes instead of spaces.
+The page detects them automatically when it loads — **no build step, no code editing.**
+
+- **Video:** `.mp4`, `.webm`, `.mov`, `.m4v` (mp4 is safest)
+- **Images:** `.jpg`, `.png`, `.webp`, `.gif`
+- Also accepts `ugc1.mp4` or just `1.mp4` inside the folder.
 - Videos **auto-play on hover** (muted) right in the card.
+- Start at `-1` and go up (`-1`, `-2`, `-3`…). A gap of 3 missing numbers stops the scan.
 
-> After adding files, run `node build.js` locally (or just let Netlify deploy —
-> it runs it for you) to refresh `work.json`.
+### ⚠️ Viewing locally
+Detecting local files is most reliable through a tiny local server rather than
+double-clicking the HTML. From the project folder:
+
+```bash
+python3 -m http.server 8000
+# then open http://localhost:8000
+```
+(Double-clicking `index.html` works in most browsers too, but a local server is bulletproof.)
 
 ### ⚠️ Keep videos small
-Compress ad clips before adding them (aim for a few MB each). For long/full
-videos, it's better to host on YouTube/TikTok and link instead — ask and I'll
-switch a card to a link.
+Compress ad clips (aim for a few MB each). For long/full videos, host on
+YouTube/TikTok and link the card instead — ask and I'll switch one to a link.
 
 ---
 

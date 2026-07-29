@@ -1,5 +1,5 @@
 /* =========================================================
-   Alex Rivera — AI Video Specialist Portfolio
+   Nathaniel — AI Video Specialist Portfolio
    Interactions
    ========================================================= */
 (function () {
@@ -35,9 +35,10 @@
   });
 
   /* ---------- Portfolio data ----------
-     These demo cards show until you add real files to assets/work/*.
-     Once you drop videos/images in those folders (and deploy), build.js
-     generates work.json and the site uses YOUR files automatically. */
+     These demo cards show ONLY until you add real files.
+     Drop videos/images named like "ugc-1.mp4", "podcast-1.mp4" into the
+     matching folder in assets/work/<category>/ and they appear automatically
+     (the page auto-detects them — no build step, works locally too). */
   var fallbackProjects = [
     { title: "ELOIX Tallow Balm — UGC Ad", cat: "ugc", tag: "UGC Ad", c1: "#3a1c71", c2: "#0c0c16", meta: "Native UGC · Meta / TikTok" },
     { title: "ELOIX Berberine — VSL", cat: "vsl", tag: "VSL", c1: "#0f4c81", c2: "#0c0c16", meta: "Direct-response · supplement" },
@@ -65,7 +66,8 @@
       var attrs = p.link ? ' href="' + esc(p.link) + '" target="_blank" rel="noopener"' : "";
       var media = "";
       if (p.video) {
-        media = '<video class="work-item__thumb" src="' + esc(p.video) + '" muted loop playsinline preload="metadata"></video>';
+        // #t=0.1 nudges browsers to show a first frame instead of black
+        media = '<video class="work-item__thumb" src="' + esc(p.video) + '#t=0.1" muted loop playsinline preload="metadata"></video>';
       } else if (p.img) {
         media = '<img class="work-item__thumb" src="' + esc(p.img) + '" alt="' + esc(p.title) + '" loading="lazy" />';
       }
@@ -92,14 +94,101 @@
     observeReveals();
   }
 
-  // Load auto-generated gallery (build.js output); fall back to demo cards.
+  /* ---------- Auto-discover the gallery ----------
+     No build step. The page probes for files named <category>-<n> (also
+     <category><n> or just <n>) inside assets/work/<category>/ and shows any
+     it finds. Works on Netlify AND locally. */
+  var WORK_CATS = [
+    { key: "ugc",        tag: "UGC Ad",        c1: "#3a1c71", c2: "#0c0c16" },
+    { key: "vsl",        tag: "VSL",           c1: "#0f4c81", c2: "#0c0c16" },
+    { key: "influencer", tag: "AI Influencer", c1: "#642B73", c2: "#0c0c16" },
+    { key: "3d",         tag: "3D Pixar",      c1: "#f7971e", c2: "#0c0c16" },
+    { key: "podcast",    tag: "Podcast Style", c1: "#0e7c66", c2: "#0c0c16" }
+  ];
+  var VIDEO_EXT = ["mp4", "webm", "mov", "m4v"];
+  var IMAGE_EXT = ["jpg", "jpeg", "png", "webp", "gif"];
+  var MAX_ITEMS = 40; // per category
+  var MAX_GAP = 3;    // stop scanning after this many missing numbers in a row
+
+  // Resolves true if a media file loads, false if missing. Works on file:// + http.
+  function probe(url, isVideo) {
+    return new Promise(function (resolve) {
+      var el = isVideo ? document.createElement("video") : new Image();
+      var settled = false;
+      function finish(val) {
+        return function () {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          resolve(val);
+        };
+      }
+      var timer = setTimeout(finish(false), 8000);
+      if (isVideo) {
+        el.preload = "metadata";
+        el.muted = true;
+        el.onloadedmetadata = finish(true);
+        el.onerror = finish(false);
+      } else {
+        el.onload = finish(true);
+        el.onerror = finish(false);
+      }
+      el.src = url;
+    });
+  }
+
+  // Try the naming variants + extensions for one slot number; resolve a hit or null.
+  function findSlot(cat, n) {
+    var names = [cat.key + "-" + n, cat.key + n, "" + n];
+    var candidates = [];
+    names.forEach(function (nm) {
+      VIDEO_EXT.forEach(function (ext) {
+        candidates.push({ url: "assets/work/" + cat.key + "/" + nm + "." + ext, isVideo: true });
+      });
+      IMAGE_EXT.forEach(function (ext) {
+        candidates.push({ url: "assets/work/" + cat.key + "/" + nm + "." + ext, isVideo: false });
+      });
+    });
+    return (function tryNext(i) {
+      if (i >= candidates.length) return Promise.resolve(null);
+      return probe(candidates[i].url, candidates[i].isVideo).then(function (ok) {
+        return ok ? candidates[i] : tryNext(i + 1);
+      });
+    })(0);
+  }
+
+  function scanCategory(cat) {
+    var items = [];
+    var n = 1;
+    var gap = 0;
+    function step() {
+      if (n > MAX_ITEMS || gap >= MAX_GAP) return Promise.resolve(items);
+      return findSlot(cat, n).then(function (hit) {
+        if (hit) {
+          items.push({
+            title: cat.tag + " " + n,
+            cat: cat.key, tag: cat.tag, c1: cat.c1, c2: cat.c2, meta: cat.tag,
+            video: hit.isVideo ? hit.url : undefined,
+            img: hit.isVideo ? undefined : hit.url
+          });
+          gap = 0;
+        } else {
+          gap++;
+        }
+        n++;
+        return step();
+      });
+    }
+    return step();
+  }
+
   function loadWork() {
-    fetch("work.json", { cache: "no-store" })
-      .then(function (r) { return r.ok ? r.json() : []; })
-      .then(function (items) {
-        renderProjects(Array.isArray(items) && items.length ? items : fallbackProjects);
-      })
-      .catch(function () { renderProjects(fallbackProjects); });
+    if (!("Promise" in window)) { renderProjects(fallbackProjects); return; }
+    Promise.all(WORK_CATS.map(scanCategory)).then(function (groups) {
+      var found = [];
+      groups.forEach(function (g) { found = found.concat(g); });
+      renderProjects(found.length ? found : fallbackProjects);
+    }).catch(function () { renderProjects(fallbackProjects); });
   }
 
   /* ---------- Filters ---------- */
