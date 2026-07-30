@@ -74,8 +74,8 @@
       }
       var media = "";
       if (p.video) {
-        // #t=0.1 nudges browsers to show a first frame instead of black
-        media = '<video class="work-item__thumb" src="' + esc(p.video) + '#t=0.1" muted loop playsinline preload="metadata"></video>';
+        // data-src = lazy: only loads when scrolled near (fast initial page)
+        media = '<video class="work-item__thumb" data-src="' + esc(p.video) + '" muted loop playsinline preload="none"></video>';
       } else if (p.img) {
         media = '<img class="work-item__thumb" src="' + esc(p.img) + '" alt="' + esc(p.title) + '" loading="lazy" />';
       }
@@ -93,11 +93,30 @@
       );
     }).join("");
 
-    // Play videos on hover (muted preview), reset on leave
+    // Lazy-load preview videos so the page opens fast
+    function loadVid(v) {
+      if (v.getAttribute("data-src")) {
+        v.src = v.getAttribute("data-src") + "#t=0.1"; // seek to a first frame
+        v.removeAttribute("data-src");
+      }
+    }
+    var lazyVids = grid.querySelectorAll("video.work-item__thumb[data-src]");
+    if ("IntersectionObserver" in window) {
+      var vidObs = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) {
+          if (e.isIntersecting) { loadVid(e.target); vidObs.unobserve(e.target); }
+        });
+      }, { rootMargin: "300px" });
+      lazyVids.forEach(function (v) { vidObs.observe(v); });
+    } else {
+      lazyVids.forEach(loadVid);
+    }
+
+    // Hover = muted preview (loads on demand if not yet loaded)
     grid.querySelectorAll("video.work-item__thumb").forEach(function (v) {
       var card = v.closest(".work-item");
-      card.addEventListener("mouseenter", function () { v.play().catch(function () {}); });
-      card.addEventListener("mouseleave", function () { v.pause(); v.currentTime = 0; });
+      card.addEventListener("mouseenter", function () { loadVid(v); v.play().catch(function () {}); });
+      card.addEventListener("mouseleave", function () { v.pause(); try { v.currentTime = 0; } catch (e) {} });
     });
 
     // Click a card to open it full-size WITH sound + controls
