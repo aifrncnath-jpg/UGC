@@ -62,8 +62,16 @@
 
   function renderProjects(list) {
     grid.innerHTML = list.map(function (p) {
+      var playable = !p.link && (p.video || p.img);
       var tag = p.link ? "a" : "article";
-      var attrs = p.link ? ' href="' + esc(p.link) + '" target="_blank" rel="noopener"' : "";
+      var attrs = "";
+      if (p.link) {
+        attrs = ' href="' + esc(p.link) + '" target="_blank" rel="noopener"';
+      } else if (playable) {
+        attrs = ' role="button" tabindex="0"' +
+                ' data-media="' + esc(p.video || p.img) + '"' +
+                ' data-type="' + (p.video ? "video" : "image") + '"';
+      }
       var media = "";
       if (p.video) {
         // #t=0.1 nudges browsers to show a first frame instead of black
@@ -73,8 +81,9 @@
       }
       var showPlay = p.video || p.link;
       var playIcon = showPlay ? '<div class="work-item__play"><span>&#9654;</span></div>' : "";
+      var cls = "work-item reveal" + (playable ? " work-item--playable" : "");
       return (
-        "<" + tag + ' class="work-item reveal" data-cat="' + esc(p.cat) + '" style="--c1:' + esc(p.c1 || "#1a1a2e") + ';--c2:' + esc(p.c2 || "#0c0c16") + '"' + attrs + ">" +
+        "<" + tag + ' class="' + cls + '" data-cat="' + esc(p.cat) + '" style="--c1:' + esc(p.c1 || "#1a1a2e") + ';--c2:' + esc(p.c2 || "#0c0c16") + '"' + attrs + ">" +
           media +
           '<div class="work-item__shine"></div>' +
           '<span class="work-item__badge">' + esc(p.tag) + '</span>' +
@@ -84,15 +93,53 @@
       );
     }).join("");
 
-    // Play videos on hover (muted), reset on leave
+    // Play videos on hover (muted preview), reset on leave
     grid.querySelectorAll("video.work-item__thumb").forEach(function (v) {
       var card = v.closest(".work-item");
       card.addEventListener("mouseenter", function () { v.play().catch(function () {}); });
       card.addEventListener("mouseleave", function () { v.pause(); v.currentTime = 0; });
     });
 
+    // Click a card to open it full-size WITH sound + controls
+    grid.querySelectorAll(".work-item--playable").forEach(function (card) {
+      function open() {
+        openLightbox(card.getAttribute("data-media"), card.getAttribute("data-type"));
+      }
+      card.addEventListener("click", open);
+      card.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); }
+      });
+    });
+
     observeReveals();
   }
+
+  /* ---------- Lightbox (full-size player with sound) ---------- */
+  var lightbox = document.getElementById("lightbox");
+  var lbStage = document.getElementById("lightboxStage");
+
+  function openLightbox(src, type) {
+    if (!src) return;
+    if (type === "image") {
+      lbStage.innerHTML = '<img src="' + esc(src) + '" alt="" />';
+    } else {
+      lbStage.innerHTML =
+        '<video src="' + esc(src) + '" controls autoplay playsinline></video>';
+    }
+    lightbox.hidden = false;
+    document.body.style.overflow = "hidden";
+  }
+  function closeLightbox() {
+    lbStage.innerHTML = ""; // stops playback
+    lightbox.hidden = true;
+    document.body.style.overflow = "";
+  }
+  document.querySelectorAll("[data-close-lb]").forEach(function (el) {
+    el.addEventListener("click", closeLightbox);
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && !lightbox.hidden) closeLightbox();
+  });
 
   /* ---------- Auto-discover the gallery ----------
      No build step. The page probes for files named <category>-<n> (also
