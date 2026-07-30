@@ -1,6 +1,7 @@
 # Netlify configuration
-# This is a plain static site with no build step. Just publish the folder.
-# The Work gallery auto-detects files you drop into assets/work/<category>/.
+# On each deploy, build.js scans assets/work/<category>/ and writes work.json
+# listing EVERY file — so all your videos show, reliably, in order.
 
 [build]
+  command = "node build.js"
   publish = "."

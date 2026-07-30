@@ -157,9 +157,32 @@
   var MAX_ITEMS = 40; // per category
   var MAX_GAP = 3;    // stop scanning after this many missing numbers in a row
 
-  // Existence check. Prefers a cheap HEAD request (http); falls back to a
-  // media-element load test (works on file:// too).
+  // Throttle probes so we never flood the server (which caused files to be
+  // missed). At most MAX_CONCURRENT existence checks run at a time.
+  var MAX_CONCURRENT = 6;
+  var activeProbes = 0;
+  var probeQueue = [];
+  function pumpProbes() {
+    while (activeProbes < MAX_CONCURRENT && probeQueue.length) {
+      var job = probeQueue.shift();
+      activeProbes++;
+      rawProbe(job.url, job.isVideo).then(function (res) {
+        activeProbes--;
+        job.resolve(res);
+        pumpProbes();
+      });
+    }
+  }
   function probe(url, isVideo) {
+    return new Promise(function (resolve) {
+      probeQueue.push({ url: url, isVideo: isVideo, resolve: resolve });
+      pumpProbes();
+    });
+  }
+
+  // Existence check. Prefers a cheap HEAD request (http); retries once, then
+  // falls back to a media-element load test (works on file:// too).
+  function rawProbe(url, isVideo) {
     if (typeof fetch === "function") {
       return fetch(url, { method: "HEAD" })
         .then(function (r) {
@@ -167,7 +190,12 @@
           if (r.status === 404 || r.status === 403) return false;
           return probeEl(url, isVideo); // e.g. 405 Method Not Allowed
         })
-        .catch(function () { return probeEl(url, isVideo); });
+        .catch(function () {
+          // one retry (transient), then element fallback
+          return fetch(url, { method: "HEAD" })
+            .then(function (r) { return r.ok ? true : (r.status === 404 ? false : probeEl(url, isVideo)); })
+            .catch(function () { return probeEl(url, isVideo); });
+        });
     }
     return probeEl(url, isVideo);
   }
@@ -265,7 +293,23 @@
     return step();
   }
 
+  // 1) Prefer work.json (reliable — generated from the real folder on Netlify).
+  // 2) Otherwise auto-detect files (throttled). 3) Otherwise demo cards.
   function loadWork() {
+    if (typeof fetch === "function") {
+      fetch("work.json", { cache: "no-store" })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (items) {
+          if (Array.isArray(items) && items.length) { renderProjects(items); }
+          else { probeDiscover(); }
+        })
+        .catch(function () { probeDiscover(); });
+    } else {
+      probeDiscover();
+    }
+  }
+
+  function probeDiscover() {
     if (!("Promise" in window)) { renderProjects(fallbackProjects); return; }
     Promise.all(WORK_CATS.map(scanCategory)).then(function (groups) {
       var found = [];
