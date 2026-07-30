@@ -146,19 +146,33 @@
      <category><n> or just <n>) inside assets/work/<category>/ and shows any
      it finds. Works on Netlify AND locally. */
   var WORK_CATS = [
-    { key: "ugc",        tag: "UGC Ad",        c1: "#3a1c71", c2: "#0c0c16" },
-    { key: "vsl",        tag: "VSL",           c1: "#0f4c81", c2: "#0c0c16" },
-    { key: "influencer", tag: "AI Influencer", c1: "#642B73", c2: "#0c0c16" },
-    { key: "3d",         tag: "3D Pixar",      c1: "#f7971e", c2: "#0c0c16" },
-    { key: "podcast",    tag: "Podcast Style", c1: "#0e7c66", c2: "#0c0c16" }
+    { key: "ugc",        tag: "UGC Ad",        c1: "#3a1c71", c2: "#0c0c16", aliases: ["ugc"] },
+    { key: "vsl",        tag: "VSL",           c1: "#0f4c81", c2: "#0c0c16", aliases: ["vsl"] },
+    { key: "influencer", tag: "AI Influencer", c1: "#642B73", c2: "#0c0c16", aliases: ["influencer", "ai", "creator"] },
+    { key: "3d",         tag: "3D Pixar",      c1: "#f7971e", c2: "#0c0c16", aliases: ["3d", "pixar", "3dpixar", "3d-pixar", "3dpixar-style"] },
+    { key: "podcast",    tag: "Podcast Style", c1: "#0e7c66", c2: "#0c0c16", aliases: ["podcast", "pod", "podcast-style"] }
   ];
-  var VIDEO_EXT = ["mp4", "webm", "mov", "m4v"];
-  var IMAGE_EXT = ["jpg", "jpeg", "png", "webp", "gif"];
+  var VIDEO_EXT = ["mp4", "mov", "webm", "m4v"];
+  var IMAGE_EXT = ["jpg", "jpeg", "png", "webp"];
   var MAX_ITEMS = 40; // per category
   var MAX_GAP = 3;    // stop scanning after this many missing numbers in a row
 
-  // Resolves true if a media file loads, false if missing. Works on file:// + http.
+  // Existence check. Prefers a cheap HEAD request (http); falls back to a
+  // media-element load test (works on file:// too).
   function probe(url, isVideo) {
+    if (typeof fetch === "function") {
+      return fetch(url, { method: "HEAD" })
+        .then(function (r) {
+          if (r.ok) return true;
+          if (r.status === 404 || r.status === 403) return false;
+          return probeEl(url, isVideo); // e.g. 405 Method Not Allowed
+        })
+        .catch(function () { return probeEl(url, isVideo); });
+    }
+    return probeEl(url, isVideo);
+  }
+
+  function probeEl(url, isVideo) {
     return new Promise(function (resolve) {
       var el = isVideo ? document.createElement("video") : new Image();
       var settled = false;
@@ -184,24 +198,46 @@
     });
   }
 
-  // Try the naming variants + extensions for one slot number; resolve a hit or null.
+  // All the filenames we'll accept for slot <n> in a category.
+  function slotNames(cat, n) {
+    var aliases = cat.aliases || [cat.key];
+    var seps = ["-", "_", " ", ""];
+    var names = [];
+    aliases.forEach(function (a) {
+      seps.forEach(function (s) { names.push(a + s + n); });
+      if (n === 1) names.push(a); // a single file with no number
+    });
+    names.push("" + n); // just the number, e.g. "1.mp4"
+    // de-duplicate (case-insensitive)
+    var seen = {}, out = [];
+    names.forEach(function (nm) {
+      var k = nm.toLowerCase();
+      if (!seen[k]) { seen[k] = 1; out.push(nm); }
+    });
+    return out;
+  }
+
+  // Probe all name+extension variants for one slot in parallel; return first hit.
   function findSlot(cat, n) {
-    var names = [cat.key + "-" + n, cat.key + n, "" + n];
+    var names = slotNames(cat, n);
     var candidates = [];
     names.forEach(function (nm) {
+      var enc = encodeURIComponent(nm);
       VIDEO_EXT.forEach(function (ext) {
-        candidates.push({ url: "assets/work/" + cat.key + "/" + nm + "." + ext, isVideo: true });
+        candidates.push({ url: "assets/work/" + cat.key + "/" + enc + "." + ext, isVideo: true, order: candidates.length });
       });
       IMAGE_EXT.forEach(function (ext) {
-        candidates.push({ url: "assets/work/" + cat.key + "/" + nm + "." + ext, isVideo: false });
+        candidates.push({ url: "assets/work/" + cat.key + "/" + enc + "." + ext, isVideo: false, order: candidates.length });
       });
     });
-    return (function tryNext(i) {
-      if (i >= candidates.length) return Promise.resolve(null);
-      return probe(candidates[i].url, candidates[i].isVideo).then(function (ok) {
-        return ok ? candidates[i] : tryNext(i + 1);
-      });
-    })(0);
+    return Promise.all(candidates.map(function (c) {
+      return probe(c.url, c.isVideo).then(function (ok) { return ok ? c : null; });
+    })).then(function (results) {
+      var hits = results.filter(Boolean);
+      if (!hits.length) return null;
+      hits.sort(function (a, b) { return a.order - b.order; });
+      return hits[0];
+    });
   }
 
   function scanCategory(cat) {
