@@ -1,0 +1,413 @@
+/* =========================================================
+   Nathaniel — AI Video Specialist Portfolio
+   Interactions
+   ========================================================= */
+(function () {
+  "use strict";
+
+  /* ---------- Year ---------- */
+  var yearEl = document.getElementById("year");
+  if (yearEl) yearEl.textContent = new Date().getFullYear();
+
+  /* ---------- Sticky nav shadow ---------- */
+  var nav = document.getElementById("nav");
+  var onScroll = function () {
+    nav.classList.toggle("is-scrolled", window.scrollY > 20);
+  };
+  onScroll();
+  window.addEventListener("scroll", onScroll, { passive: true });
+
+  /* ---------- Mobile nav ---------- */
+  var toggle = document.getElementById("navToggle");
+  var links = document.getElementById("navLinks");
+  var closeMenu = function () {
+    links.classList.remove("is-open");
+    toggle.classList.remove("is-open");
+    toggle.setAttribute("aria-expanded", "false");
+  };
+  toggle.addEventListener("click", function () {
+    var open = links.classList.toggle("is-open");
+    toggle.classList.toggle("is-open", open);
+    toggle.setAttribute("aria-expanded", String(open));
+  });
+  links.querySelectorAll("a").forEach(function (a) {
+    a.addEventListener("click", closeMenu);
+  });
+
+  /* ---------- Portfolio data ----------
+     These demo cards show ONLY until you add real files.
+     Drop videos/images named like "ugc-1.mp4", "podcast-1.mp4" into the
+     matching folder in assets/work/<category>/ and they appear automatically
+     (the page auto-detects them — no build step, works locally too). */
+  var fallbackProjects = [
+    { title: "ELOIX Tallow Balm — UGC Ad", cat: "ugc", tag: "UGC Ad", c1: "#3a1c71", c2: "#0c0c16", meta: "Native UGC · Meta / TikTok" },
+    { title: "ELOIX Berberine — VSL", cat: "vsl", tag: "VSL", c1: "#0f4c81", c2: "#0c0c16", meta: "Direct-response · supplement" },
+    { title: "AI Spokesperson — HemoFlow", cat: "influencer", tag: "AI Influencer", c1: "#642B73", c2: "#0c0c16", meta: "AI avatar · lip-sync" },
+    { title: "Tallow Balm — 3D Pixar Ad", cat: "3d", tag: "3D Pixar", c1: "#f7971e", c2: "#0c0c16", meta: "Stylized 3D product spot" },
+    { title: "Skincare Routine — UGC", cat: "ugc", tag: "UGC Ad", c1: "#16a085", c2: "#0c0c16", meta: "Testimonial-style · vertical" },
+    { title: "Berberine — AI Creator", cat: "influencer", tag: "AI Influencer", c1: "#8E2DE2", c2: "#0c0c16", meta: "Talking-head · Veo + Omniflash" },
+    { title: "Wellness Offer — VSL", cat: "vsl", tag: "VSL", c1: "#1a2980", c2: "#0c0c16", meta: "Long-form · hook to offer" },
+    { title: "Product Reveal — 3D Pixar", cat: "3d", tag: "3D Pixar", c1: "#e52d27", c2: "#0c0c16", meta: "Playful 3D animation" },
+    { title: "Founder Story — UGC", cat: "ugc", tag: "UGC Ad", c1: "#0575E6", c2: "#0c0c16", meta: "Authentic · brand story" },
+    { title: "Wellness Talk — Podcast Style", cat: "podcast", tag: "Podcast Style", c1: "#0e7c66", c2: "#0c0c16", meta: "AI podcast clip · captions" }
+  ];
+
+  var grid = document.getElementById("workGrid");
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function renderProjects(list) {
+    grid.innerHTML = list.map(function (p) {
+      var playable = !p.link && (p.video || p.img);
+      var tag = p.link ? "a" : "article";
+      var attrs = "";
+      if (p.link) {
+        attrs = ' href="' + esc(p.link) + '" target="_blank" rel="noopener"';
+      } else if (playable) {
+        attrs = ' role="button" tabindex="0"' +
+                ' data-media="' + esc(p.video || p.img) + '"' +
+                ' data-type="' + (p.video ? "video" : "image") + '"';
+      }
+      var media = "";
+      if (p.video) {
+        // data-src = lazy: only loads when scrolled near (fast initial page)
+        media = '<video class="work-item__thumb" data-src="' + esc(p.video) + '" muted loop playsinline preload="none"></video>';
+      } else if (p.img) {
+        media = '<img class="work-item__thumb" src="' + esc(p.img) + '" alt="' + esc(p.title) + '" loading="lazy" />';
+      }
+      var showPlay = p.video || p.link;
+      var playIcon = showPlay ? '<div class="work-item__play"><span>&#9654;</span></div>' : "";
+      var cls = "work-item reveal" + (playable ? " work-item--playable" : "");
+      return (
+        "<" + tag + ' class="' + cls + '" data-cat="' + esc(p.cat) + '" style="--c1:' + esc(p.c1 || "#1a1a2e") + ';--c2:' + esc(p.c2 || "#0c0c16") + '"' + attrs + ">" +
+          media +
+          '<div class="work-item__shine"></div>' +
+          '<span class="work-item__badge">' + esc(p.tag) + '</span>' +
+          playIcon +
+          '<div class="work-item__meta"><h3>' + esc(p.title) + '</h3><p>' + esc(p.meta) + '</p></div>' +
+        "</" + tag + ">"
+      );
+    }).join("");
+
+    // Lazy-load preview videos so the page opens fast
+    function loadVid(v) {
+      if (v.getAttribute("data-src")) {
+        v.src = v.getAttribute("data-src") + "#t=0.1"; // seek to a first frame
+        v.removeAttribute("data-src");
+      }
+    }
+    var lazyVids = grid.querySelectorAll("video.work-item__thumb[data-src]");
+    if ("IntersectionObserver" in window) {
+      var vidObs = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) {
+          if (e.isIntersecting) { loadVid(e.target); vidObs.unobserve(e.target); }
+        });
+      }, { rootMargin: "300px" });
+      lazyVids.forEach(function (v) { vidObs.observe(v); });
+    } else {
+      lazyVids.forEach(loadVid);
+    }
+
+    // Hover = muted preview (loads on demand if not yet loaded)
+    grid.querySelectorAll("video.work-item__thumb").forEach(function (v) {
+      var card = v.closest(".work-item");
+      card.addEventListener("mouseenter", function () { loadVid(v); v.play().catch(function () {}); });
+      card.addEventListener("mouseleave", function () { v.pause(); try { v.currentTime = 0; } catch (e) {} });
+    });
+
+    // Click a card to open it full-size WITH sound + controls
+    grid.querySelectorAll(".work-item--playable").forEach(function (card) {
+      function open() {
+        openLightbox(card.getAttribute("data-media"), card.getAttribute("data-type"));
+      }
+      card.addEventListener("click", open);
+      card.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); }
+      });
+    });
+
+    observeReveals();
+  }
+
+  /* ---------- Lightbox (full-size player with sound) ---------- */
+  var lightbox = document.getElementById("lightbox");
+  var lbStage = document.getElementById("lightboxStage");
+
+  function openLightbox(src, type) {
+    if (!src) return;
+    if (type === "image") {
+      lbStage.innerHTML = '<img src="' + esc(src) + '" alt="" />';
+    } else {
+      lbStage.innerHTML =
+        '<video src="' + esc(src) + '" controls autoplay playsinline></video>';
+    }
+    lightbox.hidden = false;
+    document.body.style.overflow = "hidden";
+  }
+  function closeLightbox() {
+    lbStage.innerHTML = ""; // stops playback
+    lightbox.hidden = true;
+    document.body.style.overflow = "";
+  }
+  document.querySelectorAll("[data-close-lb]").forEach(function (el) {
+    el.addEventListener("click", closeLightbox);
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && !lightbox.hidden) closeLightbox();
+  });
+
+  /* ---------- Auto-discover the gallery ----------
+     No build step. The page probes for files named <category>-<n> (also
+     <category><n> or just <n>) inside assets/work/<category>/ and shows any
+     it finds. Works on Netlify AND locally. */
+  var WORK_CATS = [
+    { key: "ugc",        tag: "UGC Ad",        c1: "#3a1c71", c2: "#0c0c16", aliases: ["ugc"] },
+    { key: "vsl",        tag: "VSL",           c1: "#0f4c81", c2: "#0c0c16", aliases: ["vsl"] },
+    { key: "influencer", tag: "AI Influencer", c1: "#642B73", c2: "#0c0c16", aliases: ["influencer", "ai", "creator"] },
+    { key: "3d",         tag: "3D Pixar",      c1: "#f7971e", c2: "#0c0c16", aliases: ["3d", "pixar", "3dpixar", "3d-pixar", "3dpixar-style"] },
+    { key: "podcast",    tag: "Podcast Style", c1: "#0e7c66", c2: "#0c0c16", aliases: ["podcast", "pod", "podcast-style"] }
+  ];
+  var VIDEO_EXT = ["mp4", "mov", "webm", "m4v"];
+  var IMAGE_EXT = ["jpg", "jpeg", "png", "webp"];
+  var MAX_ITEMS = 40; // per category
+  var MAX_GAP = 3;    // stop scanning after this many missing numbers in a row
+
+  // Throttle probes so we never flood the server (which caused files to be
+  // missed). At most MAX_CONCURRENT existence checks run at a time.
+  var MAX_CONCURRENT = 6;
+  var activeProbes = 0;
+  var probeQueue = [];
+  function pumpProbes() {
+    while (activeProbes < MAX_CONCURRENT && probeQueue.length) {
+      var job = probeQueue.shift();
+      activeProbes++;
+      rawProbe(job.url, job.isVideo).then(function (res) {
+        activeProbes--;
+        job.resolve(res);
+        pumpProbes();
+      });
+    }
+  }
+  function probe(url, isVideo) {
+    return new Promise(function (resolve) {
+      probeQueue.push({ url: url, isVideo: isVideo, resolve: resolve });
+      pumpProbes();
+    });
+  }
+
+  // Existence check. Prefers a cheap HEAD request (http); retries once, then
+  // falls back to a media-element load test (works on file:// too).
+  function rawProbe(url, isVideo) {
+    if (typeof fetch === "function") {
+      return fetch(url, { method: "HEAD" })
+        .then(function (r) {
+          if (r.ok) return true;
+          if (r.status === 404 || r.status === 403) return false;
+          return probeEl(url, isVideo); // e.g. 405 Method Not Allowed
+        })
+        .catch(function () {
+          // one retry (transient), then element fallback
+          return fetch(url, { method: "HEAD" })
+            .then(function (r) { return r.ok ? true : (r.status === 404 ? false : probeEl(url, isVideo)); })
+            .catch(function () { return probeEl(url, isVideo); });
+        });
+    }
+    return probeEl(url, isVideo);
+  }
+
+  function probeEl(url, isVideo) {
+    return new Promise(function (resolve) {
+      var el = isVideo ? document.createElement("video") : new Image();
+      var settled = false;
+      function finish(val) {
+        return function () {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          resolve(val);
+        };
+      }
+      var timer = setTimeout(finish(false), 8000);
+      if (isVideo) {
+        el.preload = "metadata";
+        el.muted = true;
+        el.onloadedmetadata = finish(true);
+        el.onerror = finish(false);
+      } else {
+        el.onload = finish(true);
+        el.onerror = finish(false);
+      }
+      el.src = url;
+    });
+  }
+
+  // All the filenames we'll accept for slot <n> in a category.
+  function slotNames(cat, n) {
+    var aliases = cat.aliases || [cat.key];
+    var seps = ["-", "_", " ", ""];
+    var names = [];
+    aliases.forEach(function (a) {
+      seps.forEach(function (s) { names.push(a + s + n); });
+      if (n === 1) names.push(a); // a single file with no number
+    });
+    names.push("" + n); // just the number, e.g. "1.mp4"
+    // de-duplicate (case-insensitive)
+    var seen = {}, out = [];
+    names.forEach(function (nm) {
+      var k = nm.toLowerCase();
+      if (!seen[k]) { seen[k] = 1; out.push(nm); }
+    });
+    return out;
+  }
+
+  // Probe all name+extension variants for one slot in parallel; return first hit.
+  function findSlot(cat, n) {
+    var names = slotNames(cat, n);
+    var candidates = [];
+    names.forEach(function (nm) {
+      var enc = encodeURIComponent(nm);
+      VIDEO_EXT.forEach(function (ext) {
+        candidates.push({ url: "assets/work/" + cat.key + "/" + enc + "." + ext, isVideo: true, order: candidates.length });
+      });
+      IMAGE_EXT.forEach(function (ext) {
+        candidates.push({ url: "assets/work/" + cat.key + "/" + enc + "." + ext, isVideo: false, order: candidates.length });
+      });
+    });
+    return Promise.all(candidates.map(function (c) {
+      return probe(c.url, c.isVideo).then(function (ok) { return ok ? c : null; });
+    })).then(function (results) {
+      var hits = results.filter(Boolean);
+      if (!hits.length) return null;
+      hits.sort(function (a, b) { return a.order - b.order; });
+      return hits[0];
+    });
+  }
+
+  function scanCategory(cat) {
+    var items = [];
+    var n = 1;
+    var gap = 0;
+    function step() {
+      if (n > MAX_ITEMS || gap >= MAX_GAP) return Promise.resolve(items);
+      return findSlot(cat, n).then(function (hit) {
+        if (hit) {
+          items.push({
+            title: cat.tag + " " + n,
+            cat: cat.key, tag: cat.tag, c1: cat.c1, c2: cat.c2, meta: cat.tag,
+            video: hit.isVideo ? hit.url : undefined,
+            img: hit.isVideo ? undefined : hit.url
+          });
+          gap = 0;
+        } else {
+          gap++;
+        }
+        n++;
+        return step();
+      });
+    }
+    return step();
+  }
+
+  // 1) Prefer work.json (reliable — generated from the real folder on Netlify).
+  // 2) Otherwise auto-detect files (throttled). 3) Otherwise demo cards.
+  function loadWork() {
+    if (typeof fetch === "function") {
+      fetch("work.json", { cache: "no-store" })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (items) {
+          if (Array.isArray(items) && items.length) { renderProjects(items); }
+          else { probeDiscover(); }
+        })
+        .catch(function () { probeDiscover(); });
+    } else {
+      probeDiscover();
+    }
+  }
+
+  function probeDiscover() {
+    if (!("Promise" in window)) { renderProjects(fallbackProjects); return; }
+    Promise.all(WORK_CATS.map(scanCategory)).then(function (groups) {
+      var found = [];
+      groups.forEach(function (g) { found = found.concat(g); });
+      renderProjects(found.length ? found : fallbackProjects);
+    }).catch(function () { renderProjects(fallbackProjects); });
+  }
+
+  /* ---------- Filters ---------- */
+  var filters = document.querySelectorAll(".filter");
+  filters.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      filters.forEach(function (b) { b.classList.remove("is-active"); });
+      btn.classList.add("is-active");
+      var f = btn.getAttribute("data-filter");
+      grid.querySelectorAll(".work-item").forEach(function (item) {
+        var show = f === "all" || item.getAttribute("data-cat") === f;
+        item.classList.toggle("is-hidden", !show);
+      });
+    });
+  });
+
+  /* ---------- Reveal on scroll ---------- */
+  var revealObserver;
+  function observeReveals() {
+    if (!("IntersectionObserver" in window)) {
+      document.querySelectorAll(".reveal").forEach(function (el) { el.classList.add("is-visible"); });
+      return;
+    }
+    if (!revealObserver) {
+      revealObserver = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) {
+          if (e.isIntersecting) {
+            e.target.classList.add("is-visible");
+            revealObserver.unobserve(e.target);
+          }
+        });
+      }, { threshold: 0.12 });
+    }
+    document.querySelectorAll(".reveal:not(.is-visible)").forEach(function (el, i) {
+      el.style.transitionDelay = Math.min(i % 6, 5) * 0.06 + "s";
+      revealObserver.observe(el);
+    });
+  }
+
+  /* ---------- Animate skill bars ---------- */
+  if ("IntersectionObserver" in window) {
+    var barObs = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) { e.target.classList.add("is-visible"); barObs.unobserve(e.target); }
+      });
+    }, { threshold: 0.4 });
+    document.querySelectorAll(".skillbar").forEach(function (el) { barObs.observe(el); });
+  }
+
+  /* ---------- Contact form ---------- */
+  var form = document.getElementById("contactForm");
+  var note = document.getElementById("formNote");
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var valid = true;
+    ["name", "email", "message"].forEach(function (id) {
+      var input = document.getElementById(id);
+      var field = input.closest(".field");
+      var ok = input.value.trim() !== "" && (id !== "email" || /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(input.value));
+      field.classList.toggle("invalid", !ok);
+      if (!ok) valid = false;
+    });
+    if (!valid) return;
+    note.hidden = false;
+    form.querySelector("button[type=submit]").textContent = "Sent ✓";
+    setTimeout(function () {
+      form.reset();
+      note.hidden = true;
+      form.querySelector("button[type=submit]").textContent = "Send message →";
+    }, 4000);
+  });
+
+  /* ---------- Init ---------- */
+  loadWork();
+  observeReveals();
+})();
