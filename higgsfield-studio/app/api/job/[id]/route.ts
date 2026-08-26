@@ -4,7 +4,7 @@ import { getImageTool } from "@/lib/tools";
 import { parseToolResult, isPending } from "@/lib/extract";
 import { ImageDedupe, mirrorRemoteImage, saveBase64Image } from "@/lib/assets";
 import { getStore } from "@/lib/store";
-import { saveGalleryItem, statusArgsFor } from "@/lib/generate";
+import { preferPng, saveGalleryItem, statusArgsFor } from "@/lib/generate";
 
 export const dynamic = "force-dynamic";
 
@@ -55,11 +55,15 @@ export async function GET(
     const localImages: string[] = [];
     const reasons: string[] = [];
 
-    for (const img of parsed.base64Images) {
+    // Same rule as the initial generation: PNG originals only, so an alternate
+    // encoding of one picture never becomes a second result.
+    const picked = preferPng(parsed.images, parsed.base64Images);
+
+    for (const img of picked.base64) {
       const saved = await saveBase64Image(img.data, img.mimeType, item.id, dedupe);
       if (saved) localImages.push(saved);
     }
-    for (const url of parsed.images.slice(0, 10)) {
+    for (const url of picked.urls.slice(0, 10)) {
       const outcome = await mirrorRemoteImage(url, item.id, dedupe);
       if (outcome.path) localImages.push(outcome.path);
       else if (outcome.reason) reasons.push(outcome.reason);

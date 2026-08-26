@@ -320,6 +320,43 @@ export async function buildArgs(
 /** Never download more than this many candidate URLs from one response. */
 const MAX_CANDIDATE_DOWNLOADS = 10;
 
+const PNG_URL = /\.png(\?|#|$)/i;
+
+/**
+ * Keeps only PNG sources when any PNG is available.
+ *
+ * Higgsfield commonly returns each generated image in more than one encoding —
+ * a PNG plus a WebP of the same picture. Those have different bytes and often
+ * different paths, so neither content hashing nor path grouping reliably catches
+ * them, and the result was one image saved twice under two extensions instead of
+ * the two distinct variants that were actually generated.
+ *
+ * PNG is the original, lossless form, so it is the one to keep. Other formats are
+ * only used when the response contains no PNG at all, so a WebP-only model still
+ * works rather than returning nothing.
+ */
+export function preferPng(
+  urls: string[],
+  base64: { mimeType: string; data: string }[]
+): {
+  urls: string[];
+  base64: { mimeType: string; data: string }[];
+  droppedNonPng: number;
+} {
+  const pngUrls = urls.filter((u) => PNG_URL.test(u));
+  const pngBase64 = base64.filter((b) => /png/i.test(b.mimeType));
+  const havePng = pngUrls.length > 0 || pngBase64.length > 0;
+
+  if (!havePng) return { urls, base64, droppedNonPng: 0 };
+
+  return {
+    urls: pngUrls,
+    base64: pngBase64,
+    droppedNonPng:
+      urls.length - pngUrls.length + (base64.length - pngBase64.length),
+  };
+}
+
 /**
  * Turns candidate URLs into confirmed local images.
  *
@@ -332,20 +369,37 @@ async function persistImages(
   parsed: ParsedResult,
   label: string,
   dedupe: ImageDedupe
-): Promise<{ localImages: string[]; reasons: string[] }> {
+): Promise<{ localImages: string[]; reasons: string[]; note?: string }> {
   const localImages: string[] = [];
   const reasons: string[] = [];
 
+  // Take the PNG originals and ignore alternate encodings of the same picture.
+  const picked = preferPng(parsed.images, parsed.base64Images);
+
   // base64 blocks first: they need no network and are unambiguous.
-  for (const img of parsed.base64Images) {
+  for (const img of picked.base64) {
     const saved = await saveBase64Image(img.data, img.mimeType, label, dedupe);
     if (saved) localImages.push(saved);
   }
 
-  for (const url of parsed.images.slice(0, MAX_CANDIDATE_DOWNLOADS)) {
+  for (const url of picked.urls.slice(0, MAX_CANDIDATE_DOWNLOADS)) {
     const outcome = await mirrorRemoteImage(url, label, dedupe);
     if (outcome.path) localImages.push(outcome.path);
     else if (outcome.reason) reasons.push(outcome.reason);
+  }
+
+  // If nothing usable came out of the PNG-only pass, fall back to the rest
+  // rather than showing an empty result when an image really was returned.
+  if (!localImages.length && picked.droppedNonPng > 0) {
+    for (const img of parsed.base64Images) {
+      const saved = await saveBase64Image(img.data, img.mimeType, label, dedupe);
+      if (saved) localImages.push(saved);
+    }
+    for (const url of parsed.images.slice(0, MAX_CANDIDATE_DOWNLOADS)) {
+      const outcome = await mirrorRemoteImage(url, label, dedupe);
+      if (outcome.path) localImages.push(outcome.path);
+      else if (outcome.reason) reasons.push(outcome.reason);
+    }
   }
 
   return { localImages, reasons };

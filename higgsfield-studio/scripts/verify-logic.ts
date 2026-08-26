@@ -21,7 +21,7 @@ import assert from "node:assert/strict";
 import { analyzeImageTool, describeFields } from "../lib/tools";
 import type { McpTool } from "../lib/mcp";
 import { resolveModels, sortRatios, findModelSpec } from "../lib/models";
-import { buildArgs, InvalidComboError, MAX_COUNT } from "../lib/generate";
+import { buildArgs, InvalidComboError, MAX_COUNT, preferPng } from "../lib/generate";
 import { parseToolResult, isPending, unlimChoice } from "../lib/extract";
 import { ImageDedupe } from "../lib/assets";
 import { extractMediaId } from "../lib/media";
@@ -490,6 +490,66 @@ async function main() {
     });
     assert.equal(p.jobId, "job_789");
     assert.equal(isPending(p), true);
+  });
+
+  console.log("\nPNG only — take the generated original, not re-encodings");
+
+  check("a PNG and a WebP of one picture yields only the PNG", () => {
+    // The exact reported symptom: two files, one image. PNG is the original, so
+    // it is the one kept.
+    const picked = preferPng(
+      [
+        "https://cdn.example/gen/abc.png",
+        "https://cdn.example/opt/xyz.webp",
+      ],
+      []
+    );
+    assert.deepEqual(picked.urls, ["https://cdn.example/gen/abc.png"]);
+    assert.equal(picked.droppedNonPng, 1);
+  });
+
+  check("two PNG variants both survive", () => {
+    const picked = preferPng(
+      [
+        "https://cdn.example/gen/one.png",
+        "https://cdn.example/gen/two.png",
+        "https://cdn.example/opt/one.webp",
+        "https://cdn.example/opt/two.webp",
+      ],
+      []
+    );
+    assert.deepEqual(picked.urls, [
+      "https://cdn.example/gen/one.png",
+      "https://cdn.example/gen/two.png",
+    ]);
+    assert.equal(picked.droppedNonPng, 2);
+  });
+
+  check("a WebP-only response still works", () => {
+    // Refusing everything but PNG would mean showing nothing for a model that
+    // only returns WebP, which is worse than the wrong extension.
+    const urls = ["https://cdn.example/gen/only.webp"];
+    const picked = preferPng(urls, []);
+    assert.deepEqual(picked.urls, urls);
+    assert.equal(picked.droppedNonPng, 0);
+  });
+
+  check("a PNG url beats a non-PNG base64 block", () => {
+    const picked = preferPng(
+      ["https://cdn.example/gen/abc.png"],
+      [{ mimeType: "image/webp", data: "A".repeat(400) }]
+    );
+    assert.equal(picked.urls.length, 1);
+    assert.equal(picked.base64.length, 0);
+  });
+
+  check("PNG base64 blocks are kept when there is no PNG url", () => {
+    const picked = preferPng(
+      ["https://cdn.example/gen/abc.webp"],
+      [{ mimeType: "image/png", data: "A".repeat(400) }]
+    );
+    assert.equal(picked.base64.length, 1);
+    assert.equal(picked.urls.length, 0);
   });
 
   console.log("\nTwo variants must stay two (count: 2)");
