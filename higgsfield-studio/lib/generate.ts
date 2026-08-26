@@ -599,12 +599,20 @@ export async function runGeneration(
     );
   }
 
-  // Be explicit when fewer images come back than were asked for. Silently
-  // showing one image after a request for two is exactly the confusion that
-  // duplicate saving used to cause.
-  if (dedupe.skipped > 0 && localImages.length < count) {
+  /**
+   * Always account for a shortfall.
+   *
+   * Asking for 2 and quietly showing 1 is how the duplicate bug hid for so long,
+   * so the count is reconciled out loud: how many were requested, how many
+   * distinct images were recovered, and how many copies were discarded.
+   */
+  const expected = body.useUnlim === true ? 1 : count;
+  if (gotImages && localImages.length < expected) {
+    const discarded = dedupe.skipped
+      ? ` ${dedupe.skipped} duplicate cop${dedupe.skipped === 1 ? "y was" : "ies were"} discarded rather than shown as separate images.`
+      : "";
     warnings.push(
-      `Asked for ${count} image${count === 1 ? "" : "s"} but the server returned ${localImages.length} distinct one${localImages.length === 1 ? "" : "s"}. ${dedupe.skipped} byte-identical duplicate${dedupe.skipped === 1 ? "" : "s"} were discarded rather than shown as separate results.`
+      `Asked for ${expected} image${expected === 1 ? "" : "s"} but only ${localImages.length} distinct one${localImages.length === 1 ? "" : "s"} could be recovered from the response.${discarded} If more appeared on higgsfield.ai, open the raw response below and send it over.`
     );
   }
 

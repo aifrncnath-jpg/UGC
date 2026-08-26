@@ -492,6 +492,114 @@ async function main() {
     assert.equal(isPending(p), true);
   });
 
+  console.log("\nTwo variants must stay two (count: 2)");
+
+  check("the same asset in two formats collapses to one", () => {
+    // The reported symptom: "1 image with 2 different file extensions".
+    // Byte-level dedupe cannot catch this, since a WebP and a PNG of one picture
+    // have different bytes.
+    const p = parseToolResult({
+      structuredContent: {
+        results: [
+          { url: "https://cdn.example/gen/abc123.png" },
+          { url: "https://cdn.example/gen/abc123.webp" },
+        ],
+      },
+    });
+    assert.equal(p.images.length, 1, JSON.stringify(p.images));
+    assert.ok(p.images[0].endsWith(".png"), "should keep the higher-ranked form");
+  });
+
+  check("two genuinely different variants both survive", () => {
+    // The other half of the same bug: collapsing too eagerly would lose a real
+    // variant, which is worse than showing a duplicate.
+    const p = parseToolResult({
+      structuredContent: {
+        results: [
+          { url: "https://cdn.example/gen/abc123.png" },
+          { url: "https://cdn.example/gen/def456.png" },
+        ],
+      },
+    });
+    assert.equal(p.images.length, 2, JSON.stringify(p.images));
+  });
+
+  check("variants distinguished only by a query param stay distinct", () => {
+    const p = parseToolResult({
+      structuredContent: {
+        results: [
+          { url: "https://cdn.example/gen/img?variant=1" },
+          { url: "https://cdn.example/gen/img?variant=2" },
+        ],
+      },
+    });
+    assert.equal(p.images.length, 2, JSON.stringify(p.images));
+  });
+
+  check("a thumbnail never outranks a full-size sibling", () => {
+    const p = parseToolResult({
+      structuredContent: {
+        results: [
+          { thumbnail: "https://cdn.example/gen/one_thumb.png" },
+          { url: "https://cdn.example/gen/two.png" },
+        ],
+      },
+    });
+    // Both are images, but the full-size asset must come first.
+    assert.equal(p.images[0], "https://cdn.example/gen/two.png");
+  });
+
+  check("a thumbnail of an asset collapses into that asset", () => {
+    const p = parseToolResult({
+      structuredContent: {
+        image: "https://cdn.example/gen/abc.png",
+        thumb: "https://cdn.example/gen/abc_thumb.png",
+      },
+    });
+    assert.equal(p.images.length, 1, JSON.stringify(p.images));
+    assert.equal(p.images[0], "https://cdn.example/gen/abc.png");
+  });
+
+  check("images returned as MCP embedded resources are found", () => {
+    // `blob` was not a recognised base64 key, so resource-delivered images were
+    // invisible to this app entirely.
+    const p = parseToolResult({
+      content: [
+        {
+          type: "resource",
+          resource: {
+            uri: "higgsfield://gen/1",
+            mimeType: "image/webp",
+            blob: "A".repeat(4000),
+          },
+        },
+        {
+          type: "resource",
+          resource: {
+            uri: "higgsfield://gen/2",
+            mimeType: "image/webp",
+            blob: "B".repeat(4000),
+          },
+        },
+      ],
+    });
+    assert.equal(p.base64Images.length, 2, "both resource blobs should be found");
+    assert.equal(p.base64Images[0].mimeType, "image/webp");
+  });
+
+  check("a resource_link uri is treated as an image candidate", () => {
+    const p = parseToolResult({
+      content: [
+        {
+          type: "resource_link",
+          uri: "https://cdn.example/gen/linked.png",
+          mimeType: "image/png",
+        },
+      ],
+    });
+    assert.deepEqual(p.images, ["https://cdn.example/gen/linked.png"]);
+  });
+
   console.log("\nDuplicate results (one image must never look like two)");
   check("an MCP image block is captured once, not once per path", () => {
     const p = parseToolResult({

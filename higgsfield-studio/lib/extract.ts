@@ -14,15 +14,30 @@ const URL_RE = /https?:\/\/[^\s"'<>)\]}]+/g;
 const IMAGE_KEY_HINTS = [
   "image",
   "url",
+  "uri", // MCP resource_link blocks carry the asset under `uri`
   "result",
   "output",
   "asset",
   "media",
   "file",
-  "thumb",
-  "preview",
   "src",
   "link",
+];
+
+/**
+ * Keys and URL fragments that mark a SMALLER copy of another image.
+ *
+ * These used to sit in IMAGE_KEY_HINTS as positive signals, which meant a
+ * thumbnail of the first image could outrank the second image entirely — so a
+ * request for two variants came back as one picture plus its own preview.
+ */
+const THUMBNAIL_HINTS = [
+  "thumb",
+  "thumbnail",
+  "preview",
+  "small",
+  "icon",
+  "poster",
 ];
 
 const JOB_KEY_HINTS = [
@@ -39,8 +54,22 @@ const JOB_KEY_HINTS = [
 
 const STATUS_KEY_HINTS = ["status", "state", "phase"];
 
-/** Keys that genuinely carry a raw base64 image, matched exactly. */
-const BASE64_KEYS = ["data", "bjson", "bformat", "base", "image", "imagebase"];
+/**
+ * Keys that genuinely carry a raw base64 image, matched exactly.
+ *
+ * `blob` matters: MCP embedded-resource blocks are
+ * `{ type: "resource", resource: { blob, mimeType, uri } }`, so leaving it out
+ * meant any image returned as a resource was invisible to this app.
+ */
+const BASE64_KEYS = [
+  "data",
+  "blob",
+  "bjson",
+  "bformat",
+  "base",
+  "image",
+  "imagebase",
+];
 
 /** URLs that are plainly not the generated asset. */
 const NOT_AN_ASSET =
@@ -60,16 +89,57 @@ function imageUrlScore(value: string, key: string): number {
   if (!/^https?:\/\//i.test(value)) return -1;
   if (NOT_AN_ASSET.test(value)) return -1;
 
+  const lowerKey = key.toLowerCase();
   let score = 0;
   if (IMAGE_EXT.test(value)) score += 100;
   if (/(cdn|media|asset|storage|bucket|output|generation|result)/i.test(value)) {
     score += 25;
   }
-  if (IMAGE_KEY_HINTS.some((h) => key.toLowerCase().includes(h))) score += 20;
+  if (IMAGE_KEY_HINTS.some((h) => lowerKey.includes(h))) score += 20;
   if (/\.(mp4|webm|mov|mp3|wav|json|txt|pdf|zip)(\?|#|$)/i.test(value)) {
     score -= 200;
   }
+  // A thumbnail is still a real image, so keep it as a fallback — just never
+  // ahead of a full-size asset.
+  if (
+    THUMBNAIL_HINTS.some((h) => lowerKey.includes(h)) ||
+    THUMBNAIL_HINTS.some((h) => value.toLowerCase().includes(h))
+  ) {
+    score -= 60;
+  }
   return score;
+}
+
+/**
+ * Identity of the underlying asset, ignoring how it was encoded or sized.
+ *
+ * Higgsfield can return one image in more than one format, and byte-level
+ * deduping cannot catch that — a WebP and a PNG of the same picture have
+ * different bytes. Grouping by this key collapses them, which is what turned a
+ * request for two variants into "one image with two extensions".
+ *
+ * Kept deliberately conservative: only the file extension and known
+ * format/size query parameters are stripped. Everything else, including any
+ * other query string, stays in the key, so two genuinely different variants that
+ * differ only by `?variant=2` are never merged.
+ */
+function assetIdentity(rawUrl: string): string {
+  try {
+    const u = new URL(rawUrl);
+    const path = u.pathname.replace(IMAGE_EXT, "");
+    const stem = path.replace(
+      /[-_](thumb|thumbnail|preview|small|icon|\d{2,4}x\d{2,4}|\d{2,4}w)$/i,
+      ""
+    );
+    const params = [...u.searchParams.entries()]
+      .filter(([k]) => !/^(format|fm|ext|w|h|width|height|size|q|quality|dpr)$/i.test(k))
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([k, v]) => `${k}=${v}`)
+      .join("&");
+    return `${u.host}${stem}${params ? `?${params}` : ""}`;
+  } catch {
+    return rawUrl;
+  }
 }
 
 interface Walked {
@@ -162,6 +232,28 @@ function walk(node: unknown, key: string, out: Walked, depth = 0): void {
       consumed.add("data");
     }
 
+    /**
+     * MCP embedded resource: { type: "resource", resource: { blob, mimeType, uri } }
+     *
+     * A generic walk reaches `blob` eventually, but only if `blob` is a
+     * recognised base64 key — it wasn't — so images returned this way were
+     * invisible. Handling the block directly also lets the declared mimeType be
+     * used instead of defaulting to PNG.
+     */
+    const resource = obj.resource;
+    if (
+      (obj.type === "resource" || obj.type === "resource_link") &&
+      resource &&
+      typeof resource === "object"
+    ) {
+      const r = resource as Record<string, unknown>;
+      const mime = typeof r.mimeType === "string" ? r.mimeType : "image/png";
+      if (typeof r.blob === "string" && r.blob.length > 100) {
+        out.base64Images.push({ mimeType: mime, data: r.blob });
+        consumed.add("resource");
+      }
+    }
+
     for (const [k, v] of Object.entries(obj)) {
       if (consumed.has(k)) continue;
       walk(v, k, out, depth + 1);
@@ -200,9 +292,18 @@ export function parseToolResult(result: RawToolResult): ParsedResult {
 
   // Best-ranked first, so an obvious .png beats a bare CDN link, but nothing is
   // thrown away just because its host is unfamiliar.
-  const images = [...out.scoredUrls.entries()]
+  const ranked = [...out.scoredUrls.entries()]
     .sort((a, b) => b[1] - a[1])
     .map(([url]) => url);
+
+  // Collapse re-encodings of one asset, keeping the best-ranked form of each.
+  // Distinct assets keep distinct identities, so two real variants both survive.
+  const bestPerAsset = new Map<string, string>();
+  for (const url of ranked) {
+    const identity = assetIdentity(url);
+    if (!bestPerAsset.has(identity)) bestPerAsset.set(identity, url);
+  }
+  const images = [...bestPerAsset.values()];
 
   // The same payload can legitimately be reached by more than one path through
   // the response, so collapse identical base64 blocks.
