@@ -1,4 +1,3 @@
-import type { StylePreset } from "./presets";
 import type { ResolvedModel } from "./models";
 
 export interface AuthStatus {
@@ -29,23 +28,21 @@ export interface ToolsInfo {
   allTools: { name: string; description: string | null }[];
   mapping: {
     prompt: string | null;
-    negativePrompt: string | null;
     model: string | null;
     aspectRatio: string | null;
     resolution: string | null;
     quality: string | null;
-    seed: string | null;
     batch: string | null;
-    referenceImages: string | null;
-    referenceIsArray: boolean;
   };
   models: ResolvedModel[];
   defaultModel: string;
   modelsFromSchema: boolean;
   schemaAspectRatios: string[];
+  maxCount: number;
+  /** True when the tool has its own batch parameter. */
+  hasNativeBatch: boolean;
   advancedFields: AdvancedField[];
   rawInputSchema: unknown;
-  presets: StylePreset[];
 }
 
 export interface GalleryItemView {
@@ -60,7 +57,6 @@ export interface GalleryItemView {
   jobId?: string;
   error?: string;
   warnings?: string[];
-  rawText?: string;
 }
 
 export function imageSrc(item: GalleryItemView): string[] {
@@ -68,32 +64,22 @@ export function imageSrc(item: GalleryItemView): string[] {
 }
 
 export interface FormState {
-  subject: string;
-  presetId: string;
-  extraPrompt: string;
-  negativePrompt: string;
+  prompt: string;
   model: string;
   aspectRatio: string;
   resolution: string;
   quality: string;
-  seed: string;
-  batch: string;
-  referenceImages: string[];
+  count: number;
   advanced: Record<string, string>;
 }
 
 export const EMPTY_FORM: FormState = {
-  subject: "",
-  presetId: "pixar-3d",
-  extraPrompt: "",
-  negativePrompt: "",
+  prompt: "",
   model: "",
   aspectRatio: "9:16",
   resolution: "",
   quality: "",
-  seed: "",
-  batch: "",
-  referenceImages: [],
+  count: 1,
   advanced: {},
 };
 

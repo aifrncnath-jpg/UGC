@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { InvalidComboError, runGeneration, type GenerateRequest } from "@/lib/generate";
+import {
+  InvalidComboError,
+  MAX_COUNT,
+  runGeneration,
+  type GenerateRequest,
+} from "@/lib/generate";
 import { NotConnectedError } from "@/lib/mcp";
 
 export const dynamic = "force-dynamic";
@@ -10,18 +15,29 @@ export async function POST(req: Request) {
   try {
     body = (await req.json()) as GenerateRequest;
   } catch {
-    return NextResponse.json({ ok: false, error: "Invalid JSON body." }, { status: 400 });
+    return NextResponse.json(
+      { ok: false, error: "Invalid JSON body." },
+      { status: 400 }
+    );
   }
 
-  if (!body.subject?.trim()) {
+  if (!body.prompt?.trim()) {
     return NextResponse.json(
-      { ok: false, error: "Write what you want to see first." },
+      { ok: false, error: "Write a prompt first." },
+      { status: 400 }
+    );
+  }
+
+  const count = body.count ?? 1;
+  if (!Number.isFinite(count) || count < 1 || count > MAX_COUNT) {
+    return NextResponse.json(
+      { ok: false, error: `Number of images must be between 1 and ${MAX_COUNT}.` },
       { status: 400 }
     );
   }
 
   try {
-    const item = await runGeneration(body);
+    const item = await runGeneration({ ...body, prompt: body.prompt.trim() });
     return NextResponse.json({ ok: true, item });
   } catch (err) {
     if (err instanceof NotConnectedError) {
@@ -31,12 +47,9 @@ export async function POST(req: Request) {
       );
     }
     // An illegal model/ratio pair is a user error, and importantly it costs no
-    // credits because we never reached the server.
+    // credits because we never reached the tool call.
     if (err instanceof InvalidComboError) {
-      return NextResponse.json(
-        { ok: false, error: err.message },
-        { status: 400 }
-      );
+      return NextResponse.json({ ok: false, error: err.message }, { status: 400 });
     }
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ ok: false, error: message }, { status: 500 });

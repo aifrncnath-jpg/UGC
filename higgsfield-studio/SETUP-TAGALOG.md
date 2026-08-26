@@ -213,17 +213,43 @@ Tingnan ang CMD window. Kung may pulang error doon, iyon ang tunay na problema.
 
 ---
 
-## Dalawang bagay na dapat mong malaman
+## Paano gamitin
 
-**1. Kumakain ng credits.** Kahit Unlimited plan ka sa Higgsfield, ang lahat ng
+Simple lang siya, parang website ng Higgsfield:
+
+1. **Pumili ng model** — Nano Banana Pro, GPT Image 2, Soul V2, o kahit alin sa
+   dropdown
+2. **I-type ang prompt mo** — walang idadagdag ang app, exactly kung ano ang
+   sinulat mo ang ipapadala
+3. **Piliin ang ratio** — 9:16, 16:9, 4:3, 1:1, at iba pa. Naka-filter siya per
+   model, kaya hindi mo mapipili ang hindi supported
+4. **Resolution** — 1K, 2K, o 4K
+5. **Ilan piraso** — 1 hanggang 3
+6. **Generate**
+
+Naka-save lahat sa **Gallery** tab, kasama ang eksaktong settings na ginamit.
+Pwede mong pindutin ang **Reuse** para ibalik ang prompt at settings.
+
+---
+
+## Isang bagay na dapat mong malaman
+
+**Kumakain ng credits.** Kahit Unlimited plan ka sa Higgsfield, ang lahat ng
 dumadaan sa MCP ay nagbabawas ng credits sa standard rates. Ang Unlimited at
 free generations ay sa higgsfield.ai lang applicable. Hindi ito bug — ganun ang
 patakaran ng Higgsfield sa MCP.
 
-**2. Hindi gagana ang reference images sa localhost.** Sa sariling server ng
-Higgsfield kinukuha ang reference image, kaya hindi nila kayang abutin ang
-`localhost` ng PC mo. Gagana ang lahat ng iba — ang reference image upload lang
-ang hindi. Kailangan mo munang i-deploy ang app online para gumana iyon.
+Kaya naka-limit sa 3 ang piraso. Kung 3 ang pipiliin mo, 3x ang bayad.
 
-Sabihan mo lang ako kung gusto mong i-deploy natin online, para gumana ang
-reference images at ma-access mo rin sa phone.
+---
+
+## Kung may mali sa app
+
+Buksan mo ang **Inspector** tab. Doon nakalagay ang totoong schema na binibigay
+ng Higgsfield — kung anong fields at anong models talaga ang tinatanggap nila.
+
+May **Copy raw schema** button doon. Pindutin mo lang at ipadala mo sa akin ang
+na-copy, tapos maaayos ko agad kung may hindi tugma.
+
+Sabihan mo lang ako kung gusto mong i-deploy natin online, para ma-access mo rin
+sa phone at gumana ang reference images.

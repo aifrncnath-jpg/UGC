@@ -1,12 +1,17 @@
 "use client";
 
+import React from "react";
 import { Button, Code, Collapse, Note, Panel } from "./ui";
 import type { ToolsInfo } from "@/lib/client-types";
 
 /**
  * The escape hatch. Higgsfield owns the MCP schema and can change it, so this
  * tab shows exactly what the server declared, how this app mapped its form onto
- * that schema, and which per-model constraints it is applying on top.
+ * that schema, and which per-model constraints it applies on top.
+ *
+ * The copy buttons matter: if the field matcher ever fails to spot the prompt
+ * argument, the raw schema is the only thing that explains why, and it needs to
+ * be easy to hand over.
  */
 export function InspectorView({
   tools,
@@ -17,19 +22,47 @@ export function InspectorView({
   onRefresh: () => void;
   busy: boolean;
 }) {
-  const mapRows = Object.entries(tools.mapping).filter(
-    ([k]) => k !== "referenceIsArray"
-  );
+  const mapRows = Object.entries(tools.mapping);
+  const unmapped = mapRows.filter(([, v]) => v === null).map(([k]) => k);
 
   return (
     <div className="space-y-4">
+      {tools.mapping.prompt === null && (
+        <Note tone="error">
+          <strong>The prompt field was not identified.</strong> Generation cannot
+          work until it is. Use <em>Copy raw schema</em> below and send it over so
+          the matcher can be fixed — that JSON is exactly what&apos;s needed to
+          diagnose it.
+        </Note>
+      )}
+
       <Panel
         title="Field mapping"
         subtitle="Left is this app's control, right is the argument name the server actually declared."
         right={
-          <Button variant="outline" size="sm" onClick={onRefresh} disabled={busy}>
-            Refresh schema
-          </Button>
+          <div className="flex gap-1.5">
+            <CopyButton
+              label="Copy raw schema"
+              value={() =>
+                JSON.stringify(
+                  {
+                    toolName: tools.toolName,
+                    toolDescription: tools.toolDescription,
+                    statusToolName: tools.statusToolName,
+                    allTools: tools.allTools,
+                    detectedMapping: tools.mapping,
+                    modelsFromSchema: tools.modelsFromSchema,
+                    rawInputSchema: tools.rawInputSchema,
+                  },
+                  null,
+                  2
+                )
+              }
+            />
+            <Button variant="outline" size="sm" onClick={onRefresh} disabled={busy}>
+              Refresh
+            </Button>
+          </div>
         }
       >
         <div className="overflow-hidden rounded-xl border border-line">
@@ -40,7 +73,7 @@ export function InspectorView({
                   <td className="px-3.5 py-2 font-medium text-zinc-300">{key}</td>
                   <td className="px-3.5 py-2 font-mono text-zinc-500">
                     {value === null ? (
-                      <span className="text-amber-500/80">not available</span>
+                      <span className="text-amber-500/80">not found</span>
                     ) : (
                       String(value)
                     )}
@@ -61,12 +94,19 @@ export function InspectorView({
             </>
           )}
           .
+          {unmapped.length > 0 && (
+            <>
+              {" "}
+              Not found on this tool: {unmapped.join(", ")} — those controls are
+              hidden rather than sent.
+            </>
+          )}
         </p>
       </Panel>
 
       <Panel
         title="Per-model constraints"
-        subtitle="The tool has one aspect_ratio enum shared by every model, so these narrow it down to what each model really accepts."
+        subtitle="The tool has one aspect_ratio enum shared by every model, so these narrow it to what each model really accepts."
       >
         {!tools.modelsFromSchema && (
           <div className="mb-3">
@@ -77,7 +117,7 @@ export function InspectorView({
           </div>
         )}
         <div className="overflow-x-auto rounded-xl border border-line">
-          <table className="w-full min-w-[640px] text-left text-xs">
+          <table className="w-full min-w-[560px] text-left text-xs">
             <thead>
               <tr className="border-b border-line bg-panel2/60 text-[10px] uppercase tracking-wider text-zinc-500">
                 <th className="px-3 py-2 font-semibold">Model</th>
@@ -85,7 +125,6 @@ export function InspectorView({
                 <th className="px-3 py-2 font-semibold">Aspect ratios</th>
                 <th className="px-3 py-2 font-semibold">Resolution</th>
                 <th className="px-3 py-2 font-semibold">Quality</th>
-                <th className="px-3 py-2 font-semibold">Refs</th>
               </tr>
             </thead>
             <tbody>
@@ -119,9 +158,6 @@ export function InspectorView({
                   <td className="px-3 py-2 align-top text-[11px] text-zinc-400">
                     {m.qualities.join(", ") || "—"}
                   </td>
-                  <td className="px-3 py-2 align-top text-[11px] text-zinc-400">
-                    {m.maxReferences}
-                  </td>
                 </tr>
               ))}
             </tbody>
@@ -139,7 +175,7 @@ export function InspectorView({
 
       <Panel
         title="All MCP tools"
-        subtitle={`${tools.allTools.length} exposed by the server — this app only calls the image ones`}
+        subtitle={`${tools.allTools.length} exposed by the server — this app only calls the image one`}
       >
         <ul className="space-y-2">
           {tools.allTools.map((t) => (
@@ -158,11 +194,60 @@ export function InspectorView({
         </ul>
       </Panel>
 
-      <Panel title="Raw input schema">
+      <Panel
+        title="Raw input schema"
+        right={
+          <CopyButton
+            label="Copy"
+            value={() => JSON.stringify(tools.rawInputSchema, null, 2)}
+          />
+        }
+      >
         <Collapse title={`${tools.toolName} inputSchema`} defaultOpen>
           <Code value={tools.rawInputSchema} />
         </Collapse>
       </Panel>
     </div>
+  );
+}
+
+function CopyButton({
+  label,
+  value,
+}: {
+  label: string;
+  value: () => string;
+}) {
+  const [state, setState] = React.useState<"idle" | "ok" | "fail">("idle");
+
+  async function copy() {
+    const text = value();
+    try {
+      // navigator.clipboard needs a secure context, which plain http://localhost
+      // does satisfy — but not http:// on a LAN IP, so keep a fallback.
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand("copy");
+        document.body.removeChild(ta);
+        if (!ok) throw new Error("copy rejected");
+      }
+      setState("ok");
+    } catch {
+      setState("fail");
+    }
+    setTimeout(() => setState("idle"), 2500);
+  }
+
+  return (
+    <Button variant="outline" size="sm" onClick={copy}>
+      {state === "ok" ? "Copied ✓" : state === "fail" ? "Select manually" : label}
+    </Button>
   );
 }

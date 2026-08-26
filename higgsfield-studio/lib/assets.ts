@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
-import { OUTPUTS_DIR, UPLOADS_DIR } from "./config";
+import { OUTPUTS_DIR } from "./config";
 
 /**
  * Higgsfield CDN links are signed and eventually expire, so every generated
@@ -70,30 +70,18 @@ export async function resolveAsset(
   name: string
 ): Promise<{ file: string; mime: string } | null> {
   if (!NAME_RE.test(name) || name.includes("..")) return null;
-  for (const dir of [OUTPUTS_DIR, UPLOADS_DIR]) {
-    const file = path.join(dir, name);
-    if (!path.resolve(file).startsWith(path.resolve(dir))) continue;
-    try {
-      await fs.access(file);
-      const ext = path.extname(file).toLowerCase();
-      const mime =
-        Object.entries(EXT_BY_MIME).find(([, e]) => e === ext)?.[0] ??
-        "application/octet-stream";
-      return { file, mime };
-    } catch {
-      /* try the next directory */
-    }
+  const file = path.join(OUTPUTS_DIR, name);
+  // Belt and braces: even with the name pattern above, confirm the resolved path
+  // stays inside the outputs directory before reading it.
+  if (!path.resolve(file).startsWith(path.resolve(OUTPUTS_DIR))) return null;
+  try {
+    await fs.access(file);
+  } catch {
+    return null;
   }
-  return null;
-}
-
-export async function saveUpload(
-  file: File
-): Promise<{ name: string; url: string }> {
-  const buf = Buffer.from(await file.arrayBuffer());
-  const ext = safeExt(file.name, file.type);
-  const name = `up-${Date.now()}-${crypto.randomBytes(4).toString("hex")}${ext}`;
-  await fs.mkdir(UPLOADS_DIR, { recursive: true });
-  await fs.writeFile(path.join(UPLOADS_DIR, name), buf);
-  return { name, url: `/api/asset/${name}` };
+  const ext = path.extname(file).toLowerCase();
+  const mime =
+    Object.entries(EXT_BY_MIME).find(([, e]) => e === ext)?.[0] ??
+    "application/octet-stream";
+  return { file, mime };
 }

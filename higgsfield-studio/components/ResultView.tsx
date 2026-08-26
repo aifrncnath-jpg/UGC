@@ -8,11 +8,13 @@ export function ResultView({
   busy,
   error,
   aspectRatio,
+  count,
 }: {
   item: GalleryItemView | null;
   busy: boolean;
   error: string | null;
   aspectRatio: string;
+  count: number;
 }) {
   const [w, h] = aspectRatio.split(":").map(Number);
   const ratio = w && h ? `${w} / ${h}` : "9 / 16";
@@ -21,17 +23,24 @@ export function ResultView({
     return (
       <Panel title="Generating">
         <div
-          className="shimmer flex w-full items-center justify-center rounded-xl border border-line"
-          style={{ aspectRatio: ratio }}
+          className={`grid gap-3 ${count > 1 ? "grid-cols-2" : "grid-cols-1"}`}
         >
-          <div className="flex flex-col items-center gap-3 text-zinc-500">
-            <Spinner className="h-6 w-6" />
-            <p className="text-xs">Nano Banana Pro is cooking…</p>
-            <p className="max-w-56 text-center text-[11px] leading-relaxed text-zinc-600">
-              2K renders usually land in under a minute. The tab can stay open;
-              the job keeps polling.
-            </p>
-          </div>
+          {Array.from({ length: count }, (_, i) => (
+            <div
+              key={i}
+              className="shimmer flex w-full items-center justify-center rounded-xl border border-line"
+              style={{ aspectRatio: ratio }}
+            >
+              {i === 0 && (
+                <div className="flex flex-col items-center gap-3 px-4 text-zinc-500">
+                  <Spinner className="h-6 w-6" />
+                  <p className="text-center text-[11px] leading-relaxed">
+                    Usually under a minute. Keep this tab open.
+                  </p>
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       </Panel>
     );
@@ -53,7 +62,7 @@ export function ResultView({
           style={{ aspectRatio: ratio }}
         >
           <p className="px-8 text-center text-xs leading-relaxed text-zinc-600">
-            Your render lands here. Everything is mirrored to disk, so the link
+            Your image lands here. Every result is saved to disk, so the link
             never expires on you.
           </p>
         </div>
@@ -68,12 +77,16 @@ export function ResultView({
       title={item.status === "pending" ? "Still rendering" : "Output"}
       subtitle={new Date(item.createdAt).toLocaleString()}
       right={
-        srcs[0] ? (
-          <a href={srcs[0]} download target="_blank" rel="noreferrer">
-            <Button variant="outline" size="sm">
-              Download
-            </Button>
-          </a>
+        srcs.length > 0 ? (
+          <div className="flex gap-1.5">
+            {srcs.map((src, i) => (
+              <a key={src} href={src} download target="_blank" rel="noreferrer">
+                <Button variant="outline" size="sm">
+                  ↓{srcs.length > 1 ? ` ${i + 1}` : ""}
+                </Button>
+              </a>
+            ))}
+          </div>
         ) : null
       }
     >
@@ -119,21 +132,9 @@ export function ResultView({
           </div>
         )}
 
-        <Collapse title="Prompt sent">
-          <p className="text-[11px] leading-relaxed text-zinc-400">
-            {item.prompt}
-          </p>
-        </Collapse>
-
-        <Collapse title="MCP arguments">
+        <Collapse title="MCP arguments sent">
           <Code value={item.params} />
         </Collapse>
-
-        {item.rawText && (
-          <Collapse title="Server message">
-            <Code value={item.rawText} />
-          </Collapse>
-        )}
       </div>
     </Panel>
   );

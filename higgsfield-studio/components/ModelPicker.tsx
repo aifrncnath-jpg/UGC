@@ -139,15 +139,13 @@ function ModelCard({
 }
 
 function ModelFacts({ model }: { model: ResolvedModel }) {
-  const facts: string[] = [];
-  facts.push(`${model.aspectRatios.length} ratios`);
-  if (model.resolutions.length)
-    facts.push(`up to ${model.resolutions[model.resolutions.length - 1]}`);
-  facts.push(
-    model.maxReferences === 0
-      ? "no refs"
-      : `${model.maxReferences} ref${model.maxReferences === 1 ? "" : "s"}`
-  );
+  const facts: string[] = [`${model.aspectRatios.length} ratios`];
+  if (model.resolutions.length) {
+    facts.push(
+      `up to ${model.resolutions[model.resolutions.length - 1].toUpperCase()}`
+    );
+  }
+  if (model.qualities.length) facts.push("quality dial");
   return (
     <div className="mt-2 flex flex-wrap gap-1">
       {facts.map((f) => (

@@ -42,7 +42,10 @@ export function Studio() {
     const connected = params.get("connected");
     if (err) setBanner({ tone: "error", text: err });
     else if (connected)
-      setBanner({ tone: "ok", text: "Connected to Higgsfield. Ready to generate." });
+      setBanner({
+        tone: "ok",
+        text: "Connected to Higgsfield. Ready to generate.",
+      });
     if (err || connected) {
       window.history.replaceState({}, "", window.location.pathname);
     }
@@ -55,7 +58,8 @@ export function Studio() {
       const json = await res.json();
       if (!json.ok) {
         setTools(null);
-        if (!json.notConnected) setToolsError(json.error ?? "Failed to load tools.");
+        if (!json.notConnected)
+          setToolsError(json.error ?? "Failed to load tools.");
         return;
       }
       const info = json as ToolsInfo;
@@ -131,17 +135,12 @@ export function Studio() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          subject: form.subject,
-          presetId: form.presetId || undefined,
-          extraPrompt: form.extraPrompt || undefined,
-          negativePrompt: form.negativePrompt || undefined,
+          prompt: form.prompt,
           model: form.model || undefined,
           aspectRatio: form.aspectRatio || undefined,
           resolution: form.resolution || undefined,
           quality: form.quality || undefined,
-          seed: form.seed || undefined,
-          batch: form.batch || undefined,
-          referenceImages: form.referenceImages,
+          count: form.count,
           advanced: form.advanced,
         }),
       });
@@ -169,10 +168,9 @@ export function Studio() {
   }
 
   /**
-   * Load a past generation back into the form. The prompt already has the preset
-   * baked in, so the preset is cleared to avoid appending the style twice. The
-   * ratio and resolution are read back out of the stored MCP arguments using the
-   * same field mapping we used to send them.
+   * Load a past generation back into the form. The ratio and resolution are read
+   * back out of the stored MCP arguments using the same field mapping we used to
+   * send them.
    */
   function reuse(item: GalleryItemView) {
     const readParam = (fieldName: string | null | undefined): string => {
@@ -183,10 +181,7 @@ export function Studio() {
 
     setForm((f) => ({
       ...f,
-      subject: item.prompt,
-      presetId: "",
-      extraPrompt: "",
-      negativePrompt: readParam(tools?.mapping.negativePrompt) || f.negativePrompt,
+      prompt: item.prompt,
       model: item.model || f.model,
       aspectRatio: readParam(tools?.mapping.aspectRatio) || f.aspectRatio,
       resolution: readParam(tools?.mapping.resolution),
@@ -209,8 +204,7 @@ export function Studio() {
             <span>🍌</span> Higgsfield Studio
           </h1>
           <p className="mt-1 text-sm text-zinc-500">
-            Your own image generation front end, wired straight to the Higgsfield
-            MCP server.
+            Image generation, wired straight to the Higgsfield MCP server.
           </p>
         </div>
       </header>
@@ -268,7 +262,7 @@ export function Studio() {
           </nav>
 
           {tab === "generate" && (
-            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)]">
+            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,440px)]">
               <GenerateForm
                 tools={tools}
                 form={form}
@@ -282,6 +276,7 @@ export function Studio() {
                   busy={busy}
                   error={genError}
                   aspectRatio={form.aspectRatio}
+                  count={form.count}
                 />
               </div>
             </div>

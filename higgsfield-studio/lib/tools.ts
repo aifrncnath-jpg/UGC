@@ -24,7 +24,6 @@ export interface ImageToolInfo {
   tool: McpTool;
   fields: FieldInfo[];
   promptField?: string;
-  negativePromptField?: string;
   modelField?: string;
   modelValues: string[];
   aspectRatioField?: string;
@@ -38,38 +37,129 @@ export interface ImageToolInfo {
   referenceImageField?: string;
   referenceIsArray: boolean;
   referenceMaxItems?: number;
+  /** Set when the server nests all arguments under one wrapper property. */
+  wrapperKey?: string;
   /** Best guess at the Nano Banana Pro model value, if the server enumerates it. */
   nanoBananaProValue?: string;
   nanoBananaValues: string[];
 }
 
-function flattenSchema(schema?: JsonSchema): JsonSchema {
-  if (!schema) return {};
-  // Unwrap the common `anyOf: [T, null]` optional pattern.
-  const branches = schema.anyOf ?? schema.oneOf;
-  if (branches?.length) {
-    const real = branches.find(
-      (b) => b.type !== "null" && (b.type || b.enum || b.properties || b.items)
-    );
-    if (real) return { ...real, description: schema.description ?? real.description, default: schema.default ?? real.default };
+/**
+ * Resolve a local JSON Pointer like `#/$defs/GenerateImageInput`.
+ *
+ * Real MCP servers commonly emit `$ref` because their schemas are generated from
+ * typed models (Pydantic, zod-to-json-schema, and friends all do this). A walker
+ * that ignores `$ref` sees an empty object and finds no fields at all.
+ */
+function lookupRef(ref: string, root: JsonSchema): JsonSchema | undefined {
+  if (!ref.startsWith("#/")) return undefined;
+  let cur: unknown = root;
+  for (const rawPart of ref.slice(2).split("/")) {
+    const key = rawPart.replace(/~1/g, "/").replace(/~0/g, "~");
+    if (cur == null || typeof cur !== "object") return undefined;
+    cur = (cur as Record<string, unknown>)[key];
   }
-  if (schema.allOf?.length) {
-    return schema.allOf.reduce<JsonSchema>((acc, b) => ({ ...acc, ...b }), {
-      description: schema.description,
-      default: schema.default,
-    });
-  }
-  return schema;
+  return cur && typeof cur === "object" ? (cur as JsonSchema) : undefined;
 }
 
-function stringEnum(schema: JsonSchema): string[] | undefined {
-  const flat = flattenSchema(schema);
+function deref(schema: JsonSchema, root: JsonSchema, depth = 0): JsonSchema {
+  if (depth > 10 || typeof schema.$ref !== "string") return schema;
+  const target = lookupRef(schema.$ref, root);
+  if (!target) return schema;
+  const { $ref: _ignored, ...rest } = schema;
+  // Sibling keys override the referenced target, per JSON Schema 2020-12.
+  return { ...deref(target, root, depth + 1), ...rest };
+}
+
+function flattenSchema(schema?: JsonSchema, root?: JsonSchema): JsonSchema {
+  if (!schema) return {};
+  const base = root ? deref(schema, root) : schema;
+
+  // Unwrap the common `anyOf: [T, null]` optional pattern.
+  const branches = base.anyOf ?? base.oneOf;
+  if (branches?.length) {
+    const resolved = branches.map((b) => (root ? deref(b, root) : b));
+    const real = resolved.find(
+      (b) => b.type !== "null" && (b.type || b.enum || b.properties || b.items)
+    );
+    if (real) {
+      return {
+        ...real,
+        description: base.description ?? real.description,
+        default: base.default ?? real.default,
+      };
+    }
+  }
+  if (base.allOf?.length) {
+    return base.allOf
+      .map((b) => (root ? deref(b, root) : b))
+      .reduce<JsonSchema>((acc, b) => ({ ...acc, ...b }), {
+        description: base.description,
+        default: base.default,
+      });
+  }
+  return base;
+}
+
+/**
+ * Gather every declared property, wherever it's hiding.
+ *
+ * A tool schema may put its fields directly under `properties`, or compose them
+ * with `allOf`, or branch on `anyOf`/`oneOf` — which is a natural shape here,
+ * since Higgsfield's models take different required arguments. Reading only the
+ * top-level `properties` finds nothing in the composed cases.
+ */
+function collectProperties(
+  schema: JsonSchema,
+  root: JsonSchema,
+  depth = 0
+): { props: Record<string, JsonSchema>; required: Set<string> } {
+  const props: Record<string, JsonSchema> = {};
+  const required = new Set<string>();
+  if (depth > 6) return { props, required };
+
+  const node = deref(schema, root);
+
+  for (const [name, value] of Object.entries(node.properties ?? {})) {
+    props[name] = value;
+  }
+  for (const name of node.required ?? []) required.add(name);
+
+  // allOf is a straight merge: every branch applies.
+  for (const branch of node.allOf ?? []) {
+    const sub = collectProperties(branch, root, depth + 1);
+    Object.assign(props, sub.props);
+    for (const name of sub.required) required.add(name);
+  }
+
+  // anyOf/oneOf are alternatives, so take the union of fields but do NOT treat
+  // a field required in only one branch as globally required — that would make
+  // us invent values for arguments the chosen model never wanted.
+  const branches = [...(node.anyOf ?? []), ...(node.oneOf ?? [])].filter(
+    (b) => deref(b, root).type !== "null"
+  );
+  for (const branch of branches) {
+    const sub = collectProperties(branch, root, depth + 1);
+    for (const [name, value] of Object.entries(sub.props)) {
+      if (!(name in props)) props[name] = value;
+    }
+  }
+
+  return { props, required };
+}
+
+/** Property names that are conventionally a wrapper around the real arguments. */
+const WRAPPER_KEYS = ["params", "parameters", "input", "arguments", "args", "body", "request", "payload", "options", "config"];
+
+function stringEnum(schema: JsonSchema, root?: JsonSchema): string[] | undefined {
+  const flat = flattenSchema(schema, root);
   if (Array.isArray(flat.enum)) {
     const vals = flat.enum.filter((v): v is string => typeof v === "string");
     if (vals.length) return vals;
   }
   // enum can hide one level down inside array items
-  const items = Array.isArray(flat.items) ? flat.items[0] : flat.items;
+  const rawItems = Array.isArray(flat.items) ? flat.items[0] : flat.items;
+  const items = rawItems && root ? deref(rawItems, root) : rawItems;
   if (items && Array.isArray(items.enum)) {
     const vals = items.enum.filter((v): v is string => typeof v === "string");
     if (vals.length) return vals;
@@ -77,9 +167,13 @@ function stringEnum(schema: JsonSchema): string[] | undefined {
   return undefined;
 }
 
-function kindOf(schema: JsonSchema, enumValues?: string[]): FieldInfo["kind"] {
+function kindOf(
+  schema: JsonSchema,
+  enumValues?: string[],
+  root?: JsonSchema
+): FieldInfo["kind"] {
   if (enumValues?.length) return "enum";
-  const flat = flattenSchema(schema);
+  const flat = flattenSchema(schema, root);
   const t = Array.isArray(flat.type)
     ? flat.type.find((x) => x !== "null")
     : flat.type;
@@ -99,23 +193,52 @@ function kindOf(schema: JsonSchema, enumValues?: string[]): FieldInfo["kind"] {
   }
 }
 
-export function describeFields(tool: McpTool): FieldInfo[] {
-  const schema = tool.inputSchema ?? {};
-  const props = schema.properties ?? {};
-  const required = new Set(schema.required ?? []);
-  return Object.entries(props).map(([name, raw]) => {
-    const flat = flattenSchema(raw);
-    const enumValues = stringEnum(raw);
+export function describeFields(tool: McpTool): {
+  fields: FieldInfo[];
+  /** Set when the real arguments live nested under a single wrapper property. */
+  wrapperKey?: string;
+} {
+  const root = tool.inputSchema ?? {};
+  let { props, required } = collectProperties(root, root);
+  let wrapperKey: string | undefined;
+
+  // Some servers nest everything under one object argument. Detect that and
+  // descend, remembering the key so we can nest the arguments back on the way
+  // out. Guarded tightly: exactly one property, an object, with its own fields.
+  const names = Object.keys(props);
+  if (names.length === 1) {
+    const only = names[0];
+    const inner = collectProperties(props[only], root);
+    const innerIsObject =
+      flattenSchema(props[only], root).type === "object" ||
+      Object.keys(inner.props).length > 0;
+    if (
+      innerIsObject &&
+      Object.keys(inner.props).length > 1 &&
+      (WRAPPER_KEYS.includes(only.toLowerCase()) ||
+        Object.keys(inner.props).length >= 3)
+    ) {
+      wrapperKey = only;
+      props = inner.props;
+      required = inner.required;
+    }
+  }
+
+  const fields = Object.entries(props).map(([name, raw]) => {
+    const flat = flattenSchema(raw, root);
+    const enumValues = stringEnum(raw, root);
     return {
       name,
       schema: flat,
       required: required.has(name),
-      kind: kindOf(raw, enumValues),
+      kind: kindOf(raw, enumValues, root),
       enumValues,
       description: flat.description,
       default: flat.default,
     };
   });
+
+  return { fields, wrapperKey };
 }
 
 /** Score-based field matcher: prefers exact names, tolerates synonyms. */
@@ -137,22 +260,57 @@ function pickField(
   return undefined;
 }
 
+/** Names that contain "prompt" but are definitely not THE prompt. */
+const NOT_THE_PROMPT =
+  /negative|style|system|multi|enhance|magic|auto|upsampl|rewrit|translat|language/i;
+
 export function analyzeImageTool(tool: McpTool): ImageToolInfo {
-  const fields = describeFields(tool);
+  const { fields, wrapperKey } = describeFields(tool);
   const byName = (n?: string) => fields.find((f) => f.name === n);
 
-  const promptField = pickField(
+  const promptCandidate = (f: FieldInfo) =>
+    (f.kind === "string" || f.kind === "enum") && !NOT_THE_PROMPT.test(f.name);
+
+  let promptField = pickField(
     fields,
-    ["prompt", "text", "description"],
-    ["prompt"],
-    (f) => f.kind === "string" && !f.name.toLowerCase().includes("negative")
+    [
+      "prompt",
+      "text",
+      "description",
+      "text_prompt",
+      "prompt_text",
+      "input_text",
+      "query",
+      "caption",
+      "instruction",
+      "content",
+      "message",
+    ],
+    ["prompt", "describ", "caption", "instruct"],
+    promptCandidate
   );
 
-  const negativePromptField = pickField(
-    fields,
-    ["negative_prompt", "negativeprompt"],
-    ["negative"]
-  );
+  /**
+   * Last resort: take the first required free-text field that clearly isn't a
+   * knob. Without this, an unexpected prompt field name makes the whole app
+   * unusable even though the schema is perfectly workable — which is exactly the
+   * failure this fallback was added to fix.
+   */
+  if (!promptField) {
+    const KNOB =
+      /model|ratio|resolution|quality|seed|batch|count|size|url|uri|id$|_id|folder|format|version|variant|mode|style|type|token|key/i;
+    promptField =
+      fields.find(
+        (f) =>
+          f.required &&
+          f.kind === "string" &&
+          !f.enumValues?.length &&
+          !KNOB.test(f.name)
+      )?.name ??
+      fields.find(
+        (f) => f.kind === "string" && !f.enumValues?.length && !KNOB.test(f.name)
+      )?.name;
+  }
 
   const modelField = pickField(
     fields,
@@ -228,7 +386,6 @@ export function analyzeImageTool(tool: McpTool): ImageToolInfo {
     tool,
     fields,
     promptField,
-    negativePromptField,
     modelField,
     modelValues,
     aspectRatioField,
@@ -242,6 +399,7 @@ export function analyzeImageTool(tool: McpTool): ImageToolInfo {
     referenceImageField,
     referenceIsArray,
     referenceMaxItems,
+    wrapperKey,
     nanoBananaProValue,
     nanoBananaValues,
   };
