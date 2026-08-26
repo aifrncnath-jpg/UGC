@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { callTool, NotConnectedError } from "@/lib/mcp";
 import { getImageTool } from "@/lib/tools";
 import { parseToolResult, isPending } from "@/lib/extract";
-import { mirrorRemoteImage, saveBase64Image } from "@/lib/assets";
+import { ImageDedupe, mirrorRemoteImage, saveBase64Image } from "@/lib/assets";
 import { getStore } from "@/lib/store";
 import { saveGalleryItem, statusArgsFor } from "@/lib/generate";
 
@@ -49,13 +49,16 @@ export async function GET(
       return NextResponse.json({ ok: true, item, stillPending: true });
     }
 
+    // Same content-hash guard as the initial generation, so a response carrying
+    // both a URL and an inline copy of one image doesn't become two results.
+    const dedupe = new ImageDedupe();
     const localImages: string[] = [];
     for (const url of parsed.images) {
-      const saved = await mirrorRemoteImage(url, item.id);
+      const saved = await mirrorRemoteImage(url, item.id, dedupe);
       if (saved) localImages.push(saved);
     }
     for (const img of parsed.base64Images) {
-      const saved = await saveBase64Image(img.data, img.mimeType, item.id);
+      const saved = await saveBase64Image(img.data, img.mimeType, item.id, dedupe);
       if (saved) localImages.push(saved);
     }
 

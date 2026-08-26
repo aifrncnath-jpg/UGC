@@ -17,6 +17,7 @@ import type { McpTool } from "../lib/mcp";
 import { resolveModels, sortRatios, findModelSpec } from "../lib/models";
 import { buildArgs, InvalidComboError, MAX_COUNT } from "../lib/generate";
 import { parseToolResult, isPending } from "../lib/extract";
+import { ImageDedupe } from "../lib/assets";
 
 let passed = 0;
 function check(name: string, fn: () => void) {
@@ -629,6 +630,77 @@ check("keeps a base64 image block", () => {
   assert.equal(p.base64Images.length, 1);
   assert.equal(p.base64Images[0].mimeType, "image/webp");
   assert.equal(isPending(p), false);
+});
+
+console.log("\nDuplicate results (one image must never look like two)");
+
+check("an MCP image block is captured once, not once per path", () => {
+  // The regression: the object branch captured { type:"image", data, mimeType }
+  // as image/webp, then walking into `data` captured the SAME string again as
+  // image/png. Two files, two extensions, one actual image.
+  const p = parseToolResult({
+    content: [{ type: "image", data: "A".repeat(4000), mimeType: "image/webp" }],
+  });
+  assert.equal(
+    p.base64Images.length,
+    1,
+    `expected 1 image, got ${p.base64Images.length} (${p.base64Images.map((i) => i.mimeType).join(", ")})`
+  );
+  assert.equal(p.base64Images[0].mimeType, "image/webp");
+});
+
+check("two genuinely different base64 images are both kept", () => {
+  const p = parseToolResult({
+    content: [
+      { type: "image", data: "A".repeat(4000), mimeType: "image/png" },
+      { type: "image", data: "B".repeat(4000), mimeType: "image/png" },
+    ],
+  });
+  assert.equal(p.base64Images.length, 2);
+});
+
+check("identical base64 payloads collapse to one", () => {
+  const same = "C".repeat(4000);
+  const p = parseToolResult({
+    structuredContent: { primary: { data: same }, mirror: { data: same } },
+  });
+  assert.equal(p.base64Images.length, 1);
+});
+
+check("a long non-image string under a vague key is not treated as an image", () => {
+  const p = parseToolResult({
+    structuredContent: {
+      // Previously matched by a loose key.includes("base") test.
+      database_cursor: "D".repeat(4000),
+    },
+  });
+  assert.equal(p.base64Images.length, 0);
+});
+
+check("two distinct URLs both survive, identical ones collapse", () => {
+  const p = parseToolResult({
+    structuredContent: {
+      results: [
+        { url: "https://cdn.higgsfield.ai/x/1.png" },
+        { url: "https://cdn.higgsfield.ai/x/2.png" },
+        { thumb: "https://cdn.higgsfield.ai/x/1.png" },
+      ],
+    },
+  });
+  assert.equal(p.images.length, 2);
+});
+
+check("ImageDedupe keeps distinct bytes and rejects repeats", () => {
+  const d = new ImageDedupe();
+  const a = Buffer.from("image-one-bytes");
+  const b = Buffer.from("image-two-bytes");
+  assert.equal(d.accept(a), true);
+  assert.equal(d.accept(b), true);
+  // Same bytes arriving again, e.g. as a URL copy of an inline image, or from a
+  // second fan-out call that returned an identical render.
+  assert.equal(d.accept(Buffer.from("image-one-bytes")), false);
+  assert.equal(d.count, 2);
+  assert.equal(d.skipped, 1);
 });
 
 console.log(

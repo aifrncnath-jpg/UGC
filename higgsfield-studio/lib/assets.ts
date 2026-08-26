@@ -26,20 +26,59 @@ function safeExt(fromUrl: string, contentType?: string | null): string {
   return m ? `.${m[1].toLowerCase().replace("jpeg", "jpg")}` : ".png";
 }
 
+/**
+ * Tracks which image bytes have already been written for one generation.
+ *
+ * This is the last line of defence against duplicate results. The same image can
+ * arrive by more than one route in a single response — a CDN URL *and* an inline
+ * base64 block, say — and those are indistinguishable until the bytes are in
+ * hand. Comparing content hashes is the only reliable way to tell that "two"
+ * images are actually one, which otherwise shows up as a single render appearing
+ * twice under two different file extensions.
+ */
+export class ImageDedupe {
+  private readonly seen = new Set<string>();
+  skipped = 0;
+
+  /** Returns false when these exact bytes were already kept. */
+  accept(buf: Buffer): boolean {
+    const hash = crypto.createHash("sha256").update(buf).digest("hex");
+    if (this.seen.has(hash)) {
+      this.skipped += 1;
+      return false;
+    }
+    this.seen.add(hash);
+    return true;
+  }
+
+  get count(): number {
+    return this.seen.size;
+  }
+}
+
+async function writeImage(
+  buf: Buffer,
+  ext: string,
+  jobLabel: string
+): Promise<string> {
+  const name = `${jobLabel}-${crypto.randomBytes(4).toString("hex")}${ext}`;
+  await fs.mkdir(OUTPUTS_DIR, { recursive: true });
+  await fs.writeFile(path.join(OUTPUTS_DIR, name), buf);
+  return `/api/asset/${name}`;
+}
+
 export async function mirrorRemoteImage(
   url: string,
-  jobLabel: string
+  jobLabel: string,
+  dedupe?: ImageDedupe
 ): Promise<string | null> {
   try {
     const res = await fetch(url, { redirect: "follow" });
     if (!res.ok) return null;
     const buf = Buffer.from(await res.arrayBuffer());
     if (buf.byteLength < 128) return null;
-    const ext = safeExt(url, res.headers.get("content-type"));
-    const name = `${jobLabel}-${crypto.randomBytes(4).toString("hex")}${ext}`;
-    await fs.mkdir(OUTPUTS_DIR, { recursive: true });
-    await fs.writeFile(path.join(OUTPUTS_DIR, name), buf);
-    return `/api/asset/${name}`;
+    if (dedupe && !dedupe.accept(buf)) return null;
+    return writeImage(buf, safeExt(url, res.headers.get("content-type")), jobLabel);
   } catch {
     return null;
   }
@@ -48,16 +87,14 @@ export async function mirrorRemoteImage(
 export async function saveBase64Image(
   data: string,
   mimeType: string,
-  jobLabel: string
+  jobLabel: string,
+  dedupe?: ImageDedupe
 ): Promise<string | null> {
   try {
     const buf = Buffer.from(data.replace(/\s+/g, ""), "base64");
     if (buf.byteLength < 128) return null;
-    const ext = EXT_BY_MIME[mimeType] ?? ".png";
-    const name = `${jobLabel}-${crypto.randomBytes(4).toString("hex")}${ext}`;
-    await fs.mkdir(OUTPUTS_DIR, { recursive: true });
-    await fs.writeFile(path.join(OUTPUTS_DIR, name), buf);
-    return `/api/asset/${name}`;
+    if (dedupe && !dedupe.accept(buf)) return null;
+    return writeImage(buf, EXT_BY_MIME[mimeType] ?? ".png", jobLabel);
   } catch {
     return null;
   }

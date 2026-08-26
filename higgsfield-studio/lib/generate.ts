@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import { callTool, NotConnectedError, type RawToolResult } from "./mcp";
 import { coerceValue, getImageTool, type ImageToolInfo } from "./tools";
 import { isPending, parseToolResult, type ParsedResult } from "./extract";
-import { mirrorRemoteImage, saveBase64Image } from "./assets";
+import { ImageDedupe, mirrorRemoteImage, saveBase64Image } from "./assets";
 import { updateStore, type GalleryItem } from "./store";
 import { findModelSpec } from "./models";
 import { appUrl } from "./config";
@@ -225,17 +225,26 @@ export function buildArgs(
   return { args, warnings };
 }
 
+/**
+ * Writes every image in a result to disk, skipping any whose bytes we've already
+ * kept for this generation.
+ *
+ * URLs are handled before base64 so that when a response carries both
+ * representations of one image, the copy we keep is the one with a trustworthy
+ * extension from the CDN's content type.
+ */
 async function persistImages(
   parsed: ParsedResult,
-  label: string
+  label: string,
+  dedupe: ImageDedupe
 ): Promise<string[]> {
   const local: string[] = [];
   for (const url of parsed.images) {
-    const saved = await mirrorRemoteImage(url, label);
+    const saved = await mirrorRemoteImage(url, label, dedupe);
     if (saved) local.push(saved);
   }
   for (const img of parsed.base64Images) {
-    const saved = await saveBase64Image(img.data, img.mimeType, label);
+    const saved = await saveBase64Image(img.data, img.mimeType, label, dedupe);
     if (saved) local.push(saved);
   }
   return local;
@@ -319,7 +328,8 @@ async function runOne(
   args: Record<string, unknown>,
   statusToolName: string | undefined,
   label: string,
-  budgetMs: number
+  budgetMs: number,
+  dedupe: ImageDedupe
 ): Promise<{
   images: string[];
   localImages: string[];
@@ -352,7 +362,7 @@ async function runOne(
     }
   }
 
-  const localImages = await persistImages(parsed, label);
+  const localImages = await persistImages(parsed, label, dedupe);
   return {
     images: parsed.images,
     localImages,
@@ -394,9 +404,13 @@ export async function runGeneration(
     );
   }
 
+  // One deduper shared across the whole fan-out, so an identical render coming
+  // back from two calls is counted once rather than presented as two images.
+  const dedupe = new ImageDedupe();
+
   const results = await Promise.allSettled(
     Array.from({ length: calls }, () =>
-      runOne(info, args, statusToolName, id, serverBudgetMs)
+      runOne(info, args, statusToolName, id, serverBudgetMs, dedupe)
     )
   );
 
@@ -428,6 +442,15 @@ export async function runGeneration(
   if (errors.length && gotImages) {
     warnings.push(
       `${errors.length} of ${calls} generation${calls === 1 ? "" : "s"} failed: ${[...new Set(errors)].join(" | ")}`
+    );
+  }
+
+  // Be explicit when fewer images come back than were asked for. Silently
+  // showing one image after a request for two is exactly the confusion that
+  // duplicate saving used to cause.
+  if (dedupe.skipped > 0 && localImages.length < count) {
+    warnings.push(
+      `Asked for ${count} image${count === 1 ? "" : "s"} but the server returned ${localImages.length} distinct one${localImages.length === 1 ? "" : "s"}. ${dedupe.skipped} byte-identical duplicate${dedupe.skipped === 1 ? "" : "s"} were discarded rather than shown as separate results.`
     );
   }
 

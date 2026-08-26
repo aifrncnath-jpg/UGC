@@ -2,7 +2,8 @@
 
 import React from "react";
 import { ConnectBar, ConnectSplash } from "./ConnectBar";
-import { GenerateForm } from "./GenerateForm";
+import { Composer } from "./Composer";
+import { AdvancedFields } from "./AdvancedFields";
 import { ResultView } from "./ResultView";
 import { GalleryView } from "./GalleryView";
 import { InspectorView } from "./InspectorView";
@@ -263,15 +264,16 @@ export function Studio() {
           </nav>
 
           {tab === "generate" && (
-            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,440px)]">
-              <GenerateForm
+            <div className="space-y-4">
+              <Composer
                 tools={tools}
                 form={form}
                 setForm={setForm}
                 onGenerate={generate}
                 busy={busy}
               />
-              <div className="lg:sticky lg:top-6 lg:self-start">
+              <AdvancedFields tools={tools} form={form} setForm={setForm} />
+              <div className="mx-auto w-full max-w-3xl">
                 <ResultView
                   item={result}
                   busy={busy}

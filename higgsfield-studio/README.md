@@ -104,10 +104,13 @@ clear message **before** the tool call, so it costs no credits.
 
 ## Reference images
 
-Paste a hosted image URL, or upload a file. Use them for character or product
-consistency across a batch. The count is capped at whatever the selected model
-accepts — 14 for `nano_banana_2`, 8 for `gpt_image_2`, exactly 1 for Soul V2 — and
-switching to a stricter model trims the list.
+Three ways to add one, because people reach for whichever is nearest: the `+`
+button on the prompt bar, dragging image files onto the bar, or pasting an image
+straight from the clipboard.
+
+The count is capped at whatever the selected model accepts — 14 for
+`nano_banana_2`, 8 for `gpt_image_2`, exactly 1 for Soul V2 — and switching to a
+stricter model trims the list.
 
 One real limitation, surfaced in the UI rather than hidden: **Higgsfield fetches
 reference images from its own servers.** A pasted hosted URL always works. An
@@ -124,6 +127,21 @@ tool has one, it's used. When it doesn't, the app fans out to concurrent calls
 instead — otherwise asking for 3 images would quietly return 1. Either way the
 results land in a single gallery entry, and a partial failure keeps whatever
 rendered rather than discarding images you already paid for.
+
+### Counting images honestly
+
+A single generated image can arrive by more than one route in one response: a CDN
+URL *and* an inline base64 copy, or the same payload reachable by two paths
+through the JSON. Treating those as separate results makes one render look like
+two — typically as two files with different extensions, a `.webp` and a `.png` of
+the identical picture.
+
+Two guards prevent that. The result walker claims an image content block's `data`
+field so the same payload can't be captured twice under a default mime type, and
+every image is content-hashed before being written, so byte-identical copies are
+discarded no matter which representation they arrived in. If that means fewer
+images come back than were requested, the UI says so explicitly rather than
+padding the count with duplicates.
 
 ## Why it survives Higgsfield changing their schema
 

@@ -198,6 +198,136 @@ export function Spinner({ className = "" }: { className?: string }) {
   );
 }
 
+/**
+ * A compact pill control that opens a popover, like Higgsfield's prompt bar.
+ * Closes on outside click and on Escape.
+ */
+export function Pill({
+  icon,
+  label,
+  value,
+  children,
+  disabled,
+  align = "left",
+}: {
+  icon?: React.ReactNode;
+  label?: string;
+  value: React.ReactNode;
+  children?: (close: () => void) => React.ReactNode;
+  disabled?: boolean;
+  align?: "left" | "right";
+}) {
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        disabled={disabled || !children}
+        onClick={() => setOpen((o) => !o)}
+        title={label}
+        className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40 ${
+          open
+            ? "border-banana bg-banana/10 text-banana"
+            : "border-line bg-panel2 text-zinc-300 enabled:hover:border-zinc-600 enabled:hover:text-zinc-100"
+        }`}
+      >
+        {icon}
+        <span className="max-w-[13rem] truncate">{value}</span>
+        {children && (
+          <svg
+            width="11"
+            height="11"
+            viewBox="0 0 24 24"
+            fill="none"
+            className={`shrink-0 opacity-60 transition ${open ? "rotate-180" : ""}`}
+          >
+            <path
+              d="M6 9l6 6 6-6"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+            />
+          </svg>
+        )}
+      </button>
+
+      {open && children && (
+        <div
+          className={`absolute bottom-full z-50 mb-2 min-w-[13rem] rounded-2xl border border-line bg-panel p-2 shadow-2xl shadow-black/60 ${
+            align === "right" ? "right-0" : "left-0"
+          }`}
+        >
+          {children(() => setOpen(false))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function MenuItem({
+  active,
+  children,
+  onClick,
+  sub,
+}: {
+  active?: boolean;
+  children: React.ReactNode;
+  onClick: () => void;
+  sub?: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex w-full items-start gap-2 rounded-xl px-2.5 py-2 text-left transition ${
+        active ? "bg-banana/10" : "hover:bg-zinc-800"
+      }`}
+    >
+      <span className="min-w-0 flex-1">
+        <span
+          className={`block truncate text-xs font-medium ${active ? "text-banana" : "text-zinc-200"}`}
+        >
+          {children}
+        </span>
+        {sub && (
+          <span className="mt-0.5 block text-[10px] leading-relaxed text-zinc-500">
+            {sub}
+          </span>
+        )}
+      </span>
+      {active && (
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" className="mt-0.5 shrink-0">
+          <path
+            d="M20 6L9 17l-5-5"
+            stroke="currentColor"
+            strokeWidth="3.5"
+            strokeLinecap="round"
+            className="text-banana"
+          />
+        </svg>
+      )}
+    </button>
+  );
+}
+
 export function Collapse({
   title,
   count,

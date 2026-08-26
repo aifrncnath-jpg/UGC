@@ -39,6 +39,9 @@ const JOB_KEY_HINTS = [
 
 const STATUS_KEY_HINTS = ["status", "state", "phase"];
 
+/** Keys that genuinely carry a raw base64 image, matched exactly. */
+const BASE64_KEYS = ["data", "bjson", "bformat", "base", "image", "imagebase"];
+
 function looksLikeImageUrl(value: string): boolean {
   if (!/^https?:\/\//i.test(value)) return false;
   if (IMAGE_EXT.test(value)) return true;
@@ -92,9 +95,14 @@ function walk(node: unknown, key: string, out: Walked, depth = 0): void {
     ) {
       out.jobIds.push(trimmed);
     }
-    // Bare base64 payload under an obvious key.
+    // Bare base64 payload under an explicitly named key.
+    //
+    // Kept narrow on purpose. A loose `key.includes("base")` match also fired on
+    // the `data` field of an MCP image block that had ALREADY been captured by
+    // the object branch below, which saved the same image twice under two
+    // different mime types and made one result look like two.
     if (
-      (normKey === "data" || normKey.includes("base")) &&
+      BASE64_KEYS.includes(normKey) &&
       trimmed.length > 512 &&
       /^[A-Za-z0-9+/=\s]+$/.test(trimmed.slice(0, 256))
     ) {
@@ -112,6 +120,7 @@ function walk(node: unknown, key: string, out: Walked, depth = 0): void {
 
   if (typeof node === "object") {
     const obj = node as Record<string, unknown>;
+    const consumed = new Set<string>();
 
     // MCP image content block: { type: "image", data, mimeType }
     if (
@@ -123,9 +132,13 @@ function walk(node: unknown, key: string, out: Walked, depth = 0): void {
         mimeType: typeof obj.mimeType === "string" ? obj.mimeType : "image/png",
         data: obj.data,
       });
+      // Claim `data` so the string branch cannot capture the very same payload a
+      // second time under a default mime type.
+      consumed.add("data");
     }
 
     for (const [k, v] of Object.entries(obj)) {
+      if (consumed.has(k)) continue;
       walk(v, k, out, depth + 1);
     }
   }
@@ -160,9 +173,19 @@ export function parseToolResult(result: RawToolResult): ParsedResult {
   const images = dedupe(out.imageUrls);
   const otherUrls = dedupe(out.allUrls).filter((u) => !images.includes(u));
 
+  // The same payload can legitimately be reached by more than one path through
+  // the response, so collapse identical base64 blocks.
+  const seenData = new Set<string>();
+  const base64Images = out.base64Images.filter((img) => {
+    const key = img.data.replace(/\s+/g, "");
+    if (seenData.has(key)) return false;
+    seenData.add(key);
+    return true;
+  });
+
   return {
     images,
-    base64Images: out.base64Images,
+    base64Images,
     jobId: out.jobIds[0],
     status: normalizeStatus(out.statuses),
     text,
