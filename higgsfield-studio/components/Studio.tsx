@@ -99,15 +99,44 @@ export function Studio() {
     })();
   }, [loadTools, loadGallery]);
 
-  // Keep polling anything the server handed back as still-pending.
+  /**
+   * Poll in-flight generations, but give up eventually.
+   *
+   * An unbounded poll is how a job that will never resolve turns into a spinner
+   * that never stops. After the budget expires the item is marked failed with a
+   * pointer to the raw response, which is far more useful than spinning forever.
+   */
+  const attemptsRef = React.useRef<Record<string, number>>({});
+  const MAX_POLLS = 60; // ~6 minutes at 6s
+
   React.useEffect(() => {
-    const pendingIds = [result, ...gallery]
-      .filter((i): i is GalleryItemView => Boolean(i) && i!.status === "pending")
-      .map((i) => i.id);
+    const pendingIds = [...new Set(
+      [result, ...gallery]
+        .filter((i): i is GalleryItemView => Boolean(i) && i!.status === "pending")
+        .map((i) => i.id)
+    )];
     if (!pendingIds.length) return;
 
     const timer = setInterval(async () => {
-      for (const id of [...new Set(pendingIds)]) {
+      for (const id of pendingIds) {
+        const attempts = (attemptsRef.current[id] ?? 0) + 1;
+        attemptsRef.current[id] = attempts;
+
+        if (attempts > MAX_POLLS) {
+          const giveUp = (it: GalleryItemView): GalleryItemView =>
+            it.id === id
+              ? {
+                  ...it,
+                  status: "error",
+                  error:
+                    "Gave up waiting for this job after about 6 minutes. If the image did appear on higgsfield.ai, the generation worked but this app could not read the result — open the raw response below and send it over.",
+                }
+              : it;
+          setResult((r) => (r ? giveUp(r) : r));
+          setGallery((g) => g.map(giveUp));
+          continue;
+        }
+
         try {
           const res = await fetch(`/api/job/${id}`);
           const json = await res.json();

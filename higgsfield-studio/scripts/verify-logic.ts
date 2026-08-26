@@ -599,6 +599,66 @@ check("pulls an image URL out of a plain text block", () => {
   assert.deepEqual(p.images, [
     "https://cdn.higgsfield.ai/generations/abc123.png",
   ]);
+});
+
+check("keeps an asset URL on a completely unfamiliar host", () => {
+  // THE REGRESSION. An earlier version only accepted URLs whose host matched a
+  // hardcoded CDN list, so a result served from anywhere else was discarded —
+  // the generation succeeded on higgsfield.ai while this app showed nothing and
+  // polled forever. Host is no longer a gate.
+  const p = parseToolResult({
+    structuredContent: {
+      job_id: "job_1",
+      status: "completed",
+      output: { url: "https://totally-unknown-host.example/9f8e7d" },
+    },
+  });
+  assert.ok(
+    p.images.includes("https://totally-unknown-host.example/9f8e7d"),
+    `candidate was dropped: ${JSON.stringify(p.images)}`
+  );
+});
+
+check("ranks an explicit image extension above a bare link", () => {
+  const p = parseToolResult({
+    structuredContent: {
+      meta: { permalink: "https://weird.example/xyz" },
+      output: { image_url: "https://weird.example/final.png" },
+    },
+  });
+  assert.equal(p.images[0], "https://weird.example/final.png");
+});
+
+check("ignores docs, pricing and non-asset links", () => {
+  const p = parseToolResult({
+    content: [
+      {
+        type: "text",
+        text: "See https://higgsfield.ai/pricing and https://docs.example/help for details.",
+      },
+    ],
+  });
+  assert.equal(p.images.length, 0, JSON.stringify(p.images));
+});
+
+check("ignores video and json links as image candidates", () => {
+  const p = parseToolResult({
+    structuredContent: {
+      video: "https://cdn.example/clip.mp4",
+      manifest: "https://cdn.example/data.json",
+      image: "https://cdn.example/frame.png",
+    },
+  });
+  assert.deepEqual(p.images, ["https://cdn.example/frame.png"]);
+});
+
+check("a job id no longer implies pending once images are downloaded", () => {
+  // isPending is consulted only AFTER a download attempt now, so a payload with
+  // both a job id and a finished asset is not treated as unfinished.
+  const p = parseToolResult({
+    structuredContent: { job_id: "job_2", status: "completed", url: "https://x.example/a.png" },
+  });
+  assert.equal(p.status, "done");
   assert.equal(isPending(p), false);
 });
 check("pulls several images out of structuredContent", () => {

@@ -67,21 +67,83 @@ async function writeImage(
   return `/api/asset/${name}`;
 }
 
+/** Magic-byte signatures, the ground truth when a server sends a vague type. */
+function sniffImageExt(buf: Buffer): string | null {
+  if (buf.length < 12) return null;
+  if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47)
+    return ".png";
+  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return ".jpg";
+  if (
+    buf.toString("ascii", 0, 4) === "RIFF" &&
+    buf.toString("ascii", 8, 12) === "WEBP"
+  )
+    return ".webp";
+  if (buf.toString("ascii", 0, 3) === "GIF") return ".gif";
+  // AVIF / HEIF share an ISO-BMFF 'ftyp' box.
+  if (buf.toString("ascii", 4, 8) === "ftyp") return ".avif";
+  return null;
+}
+
+export interface MirrorOutcome {
+  /** Local URL when the download really was an image. */
+  path: string | null;
+  /** Why it wasn't kept, for surfacing in the UI instead of failing silently. */
+  reason?: string;
+}
+
+/**
+ * Downloads a candidate URL and keeps it only if it is genuinely an image.
+ *
+ * This is where a candidate becomes a confirmed image. The content type is
+ * checked first, and magic bytes are used as a fallback because some CDNs serve
+ * images as `application/octet-stream` or `binary/octet-stream`. Deciding by
+ * hostname instead of content is what previously caused finished generations to
+ * be discarded.
+ */
 export async function mirrorRemoteImage(
   url: string,
   jobLabel: string,
   dedupe?: ImageDedupe
-): Promise<string | null> {
+): Promise<MirrorOutcome> {
   try {
     const res = await fetch(url, { redirect: "follow" });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      return { path: null, reason: `HTTP ${res.status} fetching ${short(url)}` };
+    }
+
+    const contentType = (res.headers.get("content-type") ?? "").toLowerCase();
+    if (contentType.startsWith("text/") || contentType.includes("json")) {
+      return { path: null, reason: `${short(url)} returned ${contentType}` };
+    }
+
     const buf = Buffer.from(await res.arrayBuffer());
-    if (buf.byteLength < 128) return null;
-    if (dedupe && !dedupe.accept(buf)) return null;
-    return writeImage(buf, safeExt(url, res.headers.get("content-type")), jobLabel);
-  } catch {
-    return null;
+    if (buf.byteLength < 128) {
+      return { path: null, reason: `${short(url)} was empty` };
+    }
+
+    const sniffed = sniffImageExt(buf);
+    const declaredImage = contentType.startsWith("image/");
+    if (!declaredImage && !sniffed) {
+      return {
+        path: null,
+        reason: `${short(url)} is not an image (${contentType || "no content type"})`,
+      };
+    }
+
+    if (dedupe && !dedupe.accept(buf)) return { path: null };
+
+    const ext = sniffed ?? safeExt(url, contentType);
+    return { path: await writeImage(buf, ext, jobLabel) };
+  } catch (err) {
+    return {
+      path: null,
+      reason: `${short(url)} could not be fetched: ${err instanceof Error ? err.message : String(err)}`,
+    };
   }
+}
+
+function short(url: string): string {
+  return url.length > 70 ? `${url.slice(0, 67)}…` : url;
 }
 
 export async function saveBase64Image(

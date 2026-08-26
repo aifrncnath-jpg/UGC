@@ -59,6 +59,8 @@ export interface GalleryItemView {
   jobId?: string;
   error?: string;
   warnings?: string[];
+  /** The raw MCP tool result. The single most useful thing when nothing appears. */
+  raw?: unknown;
 }
 
 export function imageSrc(item: GalleryItemView): string[] {

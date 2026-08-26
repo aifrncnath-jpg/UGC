@@ -233,21 +233,38 @@ export function buildArgs(
  * representations of one image, the copy we keep is the one with a trustworthy
  * extension from the CDN's content type.
  */
+/** Never download more than this many candidate URLs from one response. */
+const MAX_CANDIDATE_DOWNLOADS = 10;
+
+/**
+ * Turns candidate URLs into confirmed local images.
+ *
+ * `parsed.images` is a ranked list of plausible URLs, not a verified one, so each
+ * is downloaded and kept only if it really is an image. Rejections are collected
+ * and reported: when a generation succeeds on Higgsfield but nothing appears
+ * here, the reason a URL was skipped is the single most useful thing to know.
+ */
 async function persistImages(
   parsed: ParsedResult,
   label: string,
   dedupe: ImageDedupe
-): Promise<string[]> {
-  const local: string[] = [];
-  for (const url of parsed.images) {
-    const saved = await mirrorRemoteImage(url, label, dedupe);
-    if (saved) local.push(saved);
-  }
+): Promise<{ localImages: string[]; reasons: string[] }> {
+  const localImages: string[] = [];
+  const reasons: string[] = [];
+
+  // base64 blocks first: they need no network and are unambiguous.
   for (const img of parsed.base64Images) {
     const saved = await saveBase64Image(img.data, img.mimeType, label, dedupe);
-    if (saved) local.push(saved);
+    if (saved) localImages.push(saved);
   }
-  return local;
+
+  for (const url of parsed.images.slice(0, MAX_CANDIDATE_DOWNLOADS)) {
+    const outcome = await mirrorRemoteImage(url, label, dedupe);
+    if (outcome.path) localImages.push(outcome.path);
+    else if (outcome.reason) reasons.push(outcome.reason);
+  }
+
+  return { localImages, reasons };
 }
 
 const POLL_DELAYS_MS = [
@@ -263,19 +280,39 @@ const POLL_DELAYS_MS = [
 export async function pollForResult(
   statusToolName: string,
   jobId: string,
-  budgetMs: number
-): Promise<{ parsed: ParsedResult; raw: RawToolResult } | null> {
+  budgetMs: number,
+  label: string,
+  dedupe: ImageDedupe
+): Promise<{
+  parsed: ParsedResult;
+  raw: RawToolResult;
+  localImages: string[];
+  reasons: string[];
+} | null> {
   const deadline = Date.now() + budgetMs;
   // Resolve the real argument name once, from the status tool's own schema.
   // Sending every alias at once would trip strict additionalProperties checks.
   const args = await statusArgsFor(statusToolName, jobId);
+  const reasons: string[] = [];
+
   for (const delay of POLL_DELAYS_MS) {
     if (Date.now() + delay > deadline) break;
     await new Promise((r) => setTimeout(r, delay));
     try {
       const raw = await callTool(statusToolName, args);
       const parsed = parseToolResult(raw);
-      if (!isPending(parsed)) return { parsed, raw };
+
+      // Attempt the download on every poll. Waiting for isPending() to flip
+      // means a status payload that already contains the asset is ignored.
+      const attempt = await persistImages(parsed, label, dedupe);
+      if (attempt.localImages.length) {
+        return { parsed, raw, localImages: attempt.localImages, reasons };
+      }
+      reasons.push(...attempt.reasons);
+
+      if (!isPending(parsed)) {
+        return { parsed, raw, localImages: [], reasons };
+      }
     } catch (err) {
       if (err instanceof NotConnectedError) throw err;
       // A transient status-tool failure shouldn't kill the generation.
@@ -337,6 +374,8 @@ async function runOne(
   pending: boolean;
   error?: string;
   raw: RawToolResult;
+  /** Why candidate URLs were rejected, for diagnostics. */
+  reasons: string[];
 }> {
   const started = Date.now();
   const raw = await callTool(info.tool.name, args);
@@ -350,29 +389,44 @@ async function runOne(
       pending: false,
       error: parsed.text || "The MCP server returned an error.",
       raw,
+      reasons: [],
     };
   }
 
-  if (isPending(parsed) && parsed.jobId && statusToolName) {
+  // Try to download whatever came back BEFORE concluding anything is pending. A
+  // response often carries a job id alongside a finished asset URL, and treating
+  // the job id as proof of incompleteness is how a done generation spins forever.
+  let { localImages, reasons } = await persistImages(parsed, label, dedupe);
+
+  if (!localImages.length && isPending(parsed) && parsed.jobId && statusToolName) {
     const remaining = Math.max(0, budgetMs - (Date.now() - started));
-    const polled = await pollForResult(statusToolName, parsed.jobId, remaining);
+    const polled = await pollForResult(
+      statusToolName,
+      parsed.jobId,
+      remaining,
+      label,
+      dedupe
+    );
     if (polled) {
       parsed = polled.parsed;
       rawResult = polled.raw;
+      localImages = polled.localImages;
+      reasons = [...reasons, ...polled.reasons];
     }
   }
 
-  const localImages = await persistImages(parsed, label, dedupe);
+  const stillPending = !localImages.length && isPending(parsed);
   return {
     images: parsed.images,
     localImages,
     jobId: parsed.jobId,
-    pending: isPending(parsed) && !localImages.length,
+    pending: stillPending,
     error:
-      !localImages.length && !parsed.images.length && !isPending(parsed)
+      !localImages.length && !stillPending
         ? parsed.text || undefined
         : undefined,
     raw: rawResult,
+    reasons,
   };
 }
 
@@ -417,6 +471,7 @@ export async function runGeneration(
   const images: string[] = [];
   const localImages: string[] = [];
   const errors: string[] = [];
+  const reasons: string[] = [];
   let jobId: string | undefined;
   let anyPending = false;
   let lastRaw: unknown;
@@ -430,6 +485,7 @@ export async function runGeneration(
     }
     images.push(...r.value.images);
     localImages.push(...r.value.localImages);
+    reasons.push(...r.value.reasons);
     if (r.value.error) errors.push(r.value.error);
     if (r.value.pending) anyPending = true;
     jobId ??= r.value.jobId;
@@ -454,6 +510,13 @@ export async function runGeneration(
     );
   }
 
+  const uniqueReasons = [...new Set(reasons)];
+  if (!gotImages && uniqueReasons.length) {
+    warnings.push(
+      `Candidate URLs were found but none was a usable image: ${uniqueReasons.join(" | ")}`
+    );
+  }
+
   const item: GalleryItem = {
     id,
     createdAt: started,
@@ -470,7 +533,7 @@ export async function runGeneration(
         ? [...new Set(errors)].join(" | ")
         : anyPending
           ? undefined
-          : "The call succeeded but no image URL was found in the response. Check the Inspector tab for the raw payload.",
+          : "No image could be recovered from the response. The generation may still have succeeded on higgsfield.ai — open the raw response below and send it over so the parser can be corrected.",
     raw: lastRaw,
   };
 

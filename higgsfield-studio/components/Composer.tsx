@@ -29,8 +29,23 @@ export function Composer({
   const [dragging, setDragging] = React.useState(false);
   const [uploading, setUploading] = React.useState(0);
   const [uploadNote, setUploadNote] = React.useState<string | null>(null);
+  const [reach, setReach] = React.useState<{
+    appUrl: string;
+    uploadsUsable: boolean;
+    reason: string | null;
+  } | null>(null);
+  const [urlDraft, setUrlDraft] = React.useState("");
+  const [showUrlInput, setShowUrlInput] = React.useState(false);
   const fileInput = React.useRef<HTMLInputElement>(null);
   const dragDepth = React.useRef(0);
+
+  // Ask once whether uploads can work at all from this origin.
+  React.useEffect(() => {
+    fetch("/api/reachability")
+      .then((r) => r.json())
+      .then(setReach)
+      .catch(() => setReach(null));
+  }, []);
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
@@ -64,7 +79,31 @@ export function Composer({
     });
   }, [model, setForm]);
 
+  function addUrlRef() {
+    const v = urlDraft.trim();
+    if (!v) return;
+    if (!/^https?:\/\//i.test(v)) {
+      setUploadNote("A reference must be a full http:// or https:// URL.");
+      return;
+    }
+    if (refsFull) {
+      setUploadNote(`${model?.id} accepts at most ${maxRefs}.`);
+      return;
+    }
+    setUploadNote(null);
+    set("referenceImages", [...form.referenceImages, v]);
+    setUrlDraft("");
+    setShowUrlInput(false);
+  }
+
   async function uploadFiles(files: File[]) {
+    if (uploadsBlocked) {
+      setUploadNote(
+        reach?.reason ??
+          "Uploads are not usable from this address. Add a reference by URL instead."
+      );
+      return;
+    }
     const images = files.filter((f) => f.type.startsWith("image/"));
     if (!images.length) {
       setUploadNote("Only image files can be used as references.");
@@ -139,6 +178,7 @@ export function Composer({
 
   const canUseRefs = maxRefs > 0;
   const refFieldMissing = canUseRefs && !tools.mapping.referenceImages;
+  const uploadsBlocked = reach !== null && !reach.uploadsUsable;
 
   return (
     <div className="space-y-2">
@@ -146,7 +186,7 @@ export function Composer({
         onDragEnter={(e) => {
           e.preventDefault();
           dragDepth.current += 1;
-          if (canUseRefs) setDragging(true);
+          if (canUseRefs && !uploadsBlocked) setDragging(true);
         }}
         onDragOver={(e) => e.preventDefault()}
         onDragLeave={(e) => {
@@ -209,14 +249,22 @@ export function Composer({
         <div className="flex items-start gap-2">
           <button
             type="button"
-            onClick={() => fileInput.current?.click()}
+            onClick={() => {
+              // On a local origin an upload can never be fetched by Higgsfield,
+              // so offer the URL field instead of a file dialog that leads
+              // nowhere.
+              if (uploadsBlocked) setShowUrlInput((s) => !s);
+              else fileInput.current?.click();
+            }}
             disabled={!canUseRefs || refsFull}
             title={
               !canUseRefs
                 ? `${model?.id ?? "This model"} does not accept reference images`
                 : refsFull
                   ? `Limit of ${maxRefs} reached`
-                  : "Add reference image"
+                  : uploadsBlocked
+                    ? "Add a reference image by URL"
+                    : "Add reference image"
             }
             className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-line bg-panel2 text-lg leading-none text-zinc-300 transition enabled:hover:border-zinc-500 enabled:hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
           >
@@ -424,6 +472,36 @@ export function Composer({
           </div>
         </div>
       </div>
+
+      {showUrlInput && canUseRefs && (
+        <div className="flex gap-2">
+          <input
+            autoFocus
+            value={urlDraft}
+            onChange={(e) => setUrlDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                addUrlRef();
+              }
+              if (e.key === "Escape") setShowUrlInput(false);
+            }}
+            placeholder="https://... public image URL"
+            className="w-full rounded-xl border border-line bg-ink px-3.5 py-2.5 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-banana/60"
+          />
+          <Button variant="outline" onClick={addUrlRef} disabled={refsFull}>
+            Add
+          </Button>
+        </div>
+      )}
+
+      {uploadsBlocked && canUseRefs && (
+        <Note tone="warn">
+          <strong>Uploads cannot work from {reach?.appUrl}.</strong>{" "}
+          {reach?.reason} Click <span className="font-semibold">+</span> to add one
+          by URL — that works right now.
+        </Note>
+      )}
 
       {uploadNote && <Note tone="warn">{uploadNote}</Note>}
 

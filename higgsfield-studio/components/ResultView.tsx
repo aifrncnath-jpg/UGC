@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { Button, Code, Collapse, Note, Panel, Spinner } from "./ui";
 import { imageSrc, type GalleryItemView } from "@/lib/client-types";
 
@@ -135,7 +136,59 @@ export function ResultView({
         <Collapse title="MCP arguments sent">
           <Code value={item.params} />
         </Collapse>
+
+        {item.raw !== undefined && (
+          <Collapse
+            title="Raw MCP response"
+            defaultOpen={item.status !== "done"}
+          >
+            <p className="text-[11px] leading-relaxed text-zinc-400">
+              This is exactly what Higgsfield sent back. If the image appeared on
+              higgsfield.ai but not here, this payload shows why — copy it and
+              send it over.
+            </p>
+            <CopyRaw value={item.raw} />
+            <Code value={item.raw} />
+          </Collapse>
+        )}
       </div>
     </Panel>
+  );
+}
+
+function CopyRaw({ value }: { value: unknown }) {
+  const [state, setState] = React.useState<"idle" | "ok" | "fail">("idle");
+
+  async function copy() {
+    const text = JSON.stringify(value, null, 2);
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand("copy");
+        document.body.removeChild(ta);
+        if (!ok) throw new Error("copy rejected");
+      }
+      setState("ok");
+    } catch {
+      setState("fail");
+    }
+    setTimeout(() => setState("idle"), 2500);
+  }
+
+  return (
+    <Button variant="outline" size="sm" onClick={copy}>
+      {state === "ok"
+        ? "Copied ✓"
+        : state === "fail"
+          ? "Select the text below manually"
+          : "Copy raw response"}
+    </Button>
   );
 }

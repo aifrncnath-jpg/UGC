@@ -42,18 +42,39 @@ const STATUS_KEY_HINTS = ["status", "state", "phase"];
 /** Keys that genuinely carry a raw base64 image, matched exactly. */
 const BASE64_KEYS = ["data", "bjson", "bformat", "base", "image", "imagebase"];
 
-function looksLikeImageUrl(value: string): boolean {
-  if (!/^https?:\/\//i.test(value)) return false;
-  if (IMAGE_EXT.test(value)) return true;
-  // Higgsfield CDN links frequently omit extensions.
-  return /(higgsfield|cloudfront|amazonaws|storage\.googleapis|cdn|r2\.dev|blob\.core)/i.test(
-    value
-  );
+/** URLs that are plainly not the generated asset. */
+const NOT_AN_ASSET =
+  /(^https?:\/\/(www\.)?(higgsfield\.ai|github\.com|docs\.|help\.|support\.)|\/(docs|help|pricing|terms|privacy|login|signup|status|health)(\/|$|\?))/i;
+
+/**
+ * How likely a URL is to be the generated image.
+ *
+ * Deliberately a RANKING, not a filter. An earlier version gated on a hardcoded
+ * list of CDN domains, so when Higgsfield served the result from a host that
+ * wasn't on the list the image was silently discarded — the generation succeeded
+ * on their side while this app showed nothing and polled forever. Guessing an
+ * asset host is unwinnable, so every plausible URL is now kept as a candidate and
+ * the real test happens on download: if the response is `image/*`, it's an image.
+ */
+function imageUrlScore(value: string, key: string): number {
+  if (!/^https?:\/\//i.test(value)) return -1;
+  if (NOT_AN_ASSET.test(value)) return -1;
+
+  let score = 0;
+  if (IMAGE_EXT.test(value)) score += 100;
+  if (/(cdn|media|asset|storage|bucket|output|generation|result)/i.test(value)) {
+    score += 25;
+  }
+  if (IMAGE_KEY_HINTS.some((h) => key.toLowerCase().includes(h))) score += 20;
+  if (/\.(mp4|webm|mov|mp3|wav|json|txt|pdf|zip)(\?|#|$)/i.test(value)) {
+    score -= 200;
+  }
+  return score;
 }
 
 interface Walked {
-  imageUrls: string[];
-  allUrls: string[];
+  /** url -> best score seen, so the same link found twice keeps its best rank. */
+  scoredUrls: Map<string, number>;
   jobIds: string[];
   statuses: string[];
   base64Images: { mimeType: string; data: string }[];
@@ -81,8 +102,12 @@ function walk(node: unknown, key: string, out: Walked, depth = 0): void {
 
     for (const match of trimmed.match(URL_RE) ?? []) {
       const url = match.replace(/[.,;:]+$/, "");
-      out.allUrls.push(url);
-      if (looksLikeImageUrl(url)) out.imageUrls.push(url);
+      const score = imageUrlScore(url, key);
+      if (score < 0) continue;
+      const previous = out.scoredUrls.get(url);
+      if (previous === undefined || score > previous) {
+        out.scoredUrls.set(url, score);
+      }
     }
 
     if (STATUS_KEY_HINTS.some((h) => normKey.includes(h)) && trimmed.length < 60) {
@@ -145,18 +170,21 @@ function walk(node: unknown, key: string, out: Walked, depth = 0): void {
 }
 
 export interface ParsedResult {
+  /**
+   * Every plausible asset URL, best-ranked first. These are CANDIDATES: the
+   * caller confirms which are really images by checking the content type when it
+   * downloads them.
+   */
   images: string[];
   base64Images: { mimeType: string; data: string }[];
   jobId?: string;
   status?: string;
   text: string;
-  otherUrls: string[];
 }
 
 export function parseToolResult(result: RawToolResult): ParsedResult {
   const out: Walked = {
-    imageUrls: [],
-    allUrls: [],
+    scoredUrls: new Map(),
     jobIds: [],
     statuses: [],
     base64Images: [],
@@ -170,8 +198,11 @@ export function parseToolResult(result: RawToolResult): ParsedResult {
     .map((c) => c.text as string)
     .join("\n\n");
 
-  const images = dedupe(out.imageUrls);
-  const otherUrls = dedupe(out.allUrls).filter((u) => !images.includes(u));
+  // Best-ranked first, so an obvious .png beats a bare CDN link, but nothing is
+  // thrown away just because its host is unfamiliar.
+  const images = [...out.scoredUrls.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([url]) => url);
 
   // The same payload can legitimately be reached by more than one path through
   // the response, so collapse identical base64 blocks.
@@ -189,12 +220,7 @@ export function parseToolResult(result: RawToolResult): ParsedResult {
     jobId: out.jobIds[0],
     status: normalizeStatus(out.statuses),
     text,
-    otherUrls,
   };
-}
-
-function dedupe(arr: string[]): string[] {
-  return [...new Set(arr)];
 }
 
 function normalizeStatus(statuses: string[]): string | undefined {
@@ -207,9 +233,16 @@ function normalizeStatus(statuses: string[]): string | undefined {
   return "pending";
 }
 
-/** True when a result clearly represents an unfinished async generation. */
+/**
+ * True when a result clearly represents an unfinished async generation.
+ *
+ * Note this is only consulted AFTER download has been attempted. A response can
+ * carry both a job id and a finished asset URL, and treating it as pending
+ * because a job id exists is how a completed generation ends up spinning
+ * forever.
+ */
 export function isPending(parsed: ParsedResult): boolean {
-  if (parsed.images.length || parsed.base64Images.length) return false;
+  if (parsed.base64Images.length) return false;
   if (parsed.status === "done") return false;
   return Boolean(parsed.jobId) || parsed.status === "pending";
 }
