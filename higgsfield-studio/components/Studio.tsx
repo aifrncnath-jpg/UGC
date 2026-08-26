@@ -141,6 +141,7 @@ export function Studio() {
           resolution: form.resolution || undefined,
           quality: form.quality || undefined,
           count: form.count,
+          referenceImages: form.referenceImages,
           advanced: form.advanced,
         }),
       });

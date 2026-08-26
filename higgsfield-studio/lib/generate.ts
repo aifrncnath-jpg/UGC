@@ -5,6 +5,7 @@ import { isPending, parseToolResult, type ParsedResult } from "./extract";
 import { mirrorRemoteImage, saveBase64Image } from "./assets";
 import { updateStore, type GalleryItem } from "./store";
 import { findModelSpec } from "./models";
+import { appUrl } from "./config";
 
 /** Hard ceiling on images per generation. Each one costs credits. */
 export const MAX_COUNT = 3;
@@ -17,6 +18,8 @@ export interface GenerateRequest {
   quality?: string;
   /** 1 to MAX_COUNT. */
   count?: number;
+  /** Public image URLs, or app-relative paths from /api/upload. */
+  referenceImages?: string[];
   advanced?: Record<string, unknown>;
 }
 
@@ -77,6 +80,15 @@ function validateAgainstModel(body: GenerateRequest): void {
         `${spec.label} does not support "${body.quality}" quality. It accepts: ${spec.qualities.join(", ")}.`
       );
     }
+  }
+
+  const refCount = (body.referenceImages ?? []).filter((r) => r.trim()).length;
+  if (refCount > spec.maxReferences) {
+    throw new InvalidComboError(
+      spec.maxReferences === 0
+        ? `${spec.id} does not accept reference images.`
+        : `${spec.id} accepts at most ${spec.maxReferences} reference image${spec.maxReferences === 1 ? "" : "s"}, but ${refCount} were provided.`
+    );
   }
 }
 
@@ -145,6 +157,34 @@ export function buildArgs(
   setIfPossible(info.aspectRatioField, body.aspectRatio, "aspect ratio");
   setIfPossible(info.resolutionField, body.resolution, "resolution");
   setIfPossible(info.qualityField, body.quality, "quality");
+
+  const refs = (body.referenceImages ?? [])
+    .map((r) => r.trim())
+    .filter(Boolean)
+    // Relative paths come from our own /api/upload, so make them absolute —
+    // Higgsfield fetches these server-side and cannot resolve a relative URL.
+    .map((r) => (r.startsWith("/") ? `${appUrl()}${r}` : r));
+
+  if (refs.length) {
+    const f = field(info.referenceImageField);
+    if (!f) {
+      warnings.push(
+        "This tool does not accept reference images, so they were skipped."
+      );
+    } else {
+      if (refs.some((r) => /localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]/i.test(r))) {
+        warnings.push(
+          "A reference image points at localhost. Higgsfield fetches references from its own servers and cannot reach your machine, so that image will be ignored. Paste an already-hosted image URL, or deploy the app."
+        );
+      }
+      args[f.name] = info.referenceIsArray ? refs : refs[0];
+      if (!info.referenceIsArray && refs.length > 1) {
+        warnings.push(
+          `This tool takes a single reference image, so only the first of ${refs.length} was sent.`
+        );
+      }
+    }
+  }
 
   if (batchCount && batchCount > 1 && info.batchField) {
     const f = field(info.batchField)!;

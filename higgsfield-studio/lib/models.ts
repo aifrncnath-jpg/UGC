@@ -17,10 +17,25 @@
 export interface ModelSpec {
   /** The value sent to the server, matching Higgsfield's job type slug. */
   id: string;
+  /**
+   * Display name AS HIGGSFIELD LABELS IT in their CLI reference.
+   *
+   * Read this carefully, because the slugs are genuinely counter-intuitive:
+   * Higgsfield maps `nano_banana_2` to the name "Nano Banana Pro", and
+   * `nano_banana_flash` to the name "Nano Banana 2". That is not a typo here —
+   * it reflects the architectures. Nano Banana Pro is Gemini 3 Pro Image, and
+   * Nano Banana 2 is Gemini 3.1 Flash, so "flash" really is the 2.
+   *
+   * Because this mapping is easy to get wrong, the UI shows the raw slug as the
+   * primary identifier and treats this label as a hint. The slug is what gets
+   * sent, so the slug is what you should trust.
+   */
   label: string;
+  /** Underlying model, the least ambiguous way to tell these apart. */
+  architecture?: string;
   /** Shown on the picker card. */
   blurb: string;
-  /** Ranked up in the picker; the two the user asked for are tier 1. */
+  /** Ranked up in the picker. */
   tier: 1 | 2 | 3;
   aspectRatios: string[];
   /** Values for a `resolution` field, if the model has one. */
@@ -53,20 +68,51 @@ export const IMAGE_MODELS: ModelSpec[] = [
   {
     id: "nano_banana_2",
     label: "Nano Banana Pro",
+    architecture: "Gemini 3 Pro Image",
     blurb:
-      "Google's Gemini 3 Pro Image. Best text and typography in frame, native 2K up to 4K. The default for ad creatives with readable copy.",
+      "Highest quality of the Nano Bananas, and the best at rendering readable text and typography in frame. Slower and roughly double the cost per image. Native 2K, up to 4K.",
     tier: 1,
     aspectRatios: COMMON_10,
     resolutions: ["1k", "2k", "4k"],
     defaultResolution: "2k",
     maxReferences: 14,
-    aliases: ["nano-banana-pro", "nano_banana_pro", "nanobananapro", "nano_banana_2"],
+    // Deliberately NOT aliasing "nano_banana_pro" here. If the server ever
+    // exposes that as a distinct slug, it must show up as its own option rather
+    // than being silently folded into this one.
+    aliases: ["nanobanana2"],
+  },
+  {
+    id: "nano_banana_flash",
+    label: "Nano Banana 2",
+    architecture: "Gemini 3.1 Flash (GEMPIX2)",
+    blurb:
+      "2-3x faster and about half the cost of Pro, at close to the same quality for most shots. The sensible default for hook variations and volume.",
+    tier: 1,
+    aspectRatios: COMMON_10,
+    resolutions: ["1k", "2k", "4k"],
+    defaultResolution: "1k",
+    maxReferences: 8,
+    aliases: ["nanobananaflash"],
+  },
+  {
+    id: "nano_banana_pro",
+    label: "Nano Banana Pro (explicit slug)",
+    architecture: "Gemini 3 Pro Image",
+    blurb:
+      "Only appears if the MCP server exposes this exact slug separately from nano_banana_2. If you can see it here, use it.",
+    tier: 1,
+    aspectRatios: COMMON_10,
+    resolutions: ["1k", "2k", "4k"],
+    defaultResolution: "2k",
+    maxReferences: 14,
+    aliases: ["nano-banana-pro", "nanobananapro"],
   },
   {
     id: "gpt_image_2",
     label: "GPT Image 2",
+    architecture: "OpenAI",
     blurb:
-      "OpenAI's image model. Strong prompt adherence and clean composition, with an explicit quality dial.",
+      "Strong prompt adherence and clean composition, with an explicit quality dial.",
     tier: 1,
     aspectRatios: ["1:1", "4:3", "3:4", "16:9", "9:16", "3:2", "2:3"],
     resolutions: ["1k", "2k", "4k"],
@@ -75,17 +121,6 @@ export const IMAGE_MODELS: ModelSpec[] = [
     defaultQuality: "high",
     maxReferences: 8,
     aliases: ["gpt-image-2", "gptimage2", "gpt_image_two"],
-  },
-  {
-    id: "nano_banana_flash",
-    label: "Nano Banana 2",
-    blurb: "Faster, cheaper Nano Banana. Good for hook variations and volume.",
-    tier: 2,
-    aspectRatios: COMMON_10,
-    resolutions: ["1k", "2k", "4k"],
-    defaultResolution: "1k",
-    maxReferences: 8,
-    aliases: ["nano-banana-2", "nano_banana_2_flash"],
   },
   {
     id: "nano_banana_2_lite",
@@ -262,15 +297,27 @@ function normalize(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
-/** Match a live schema enum value against the catalog. */
+/**
+ * Match a live schema enum value against the catalog.
+ *
+ * Order matters here, and getting it wrong is subtle. Because `nano_banana_2` is
+ * LABELLED "Nano Banana Pro", a naive lookup that checks labels alongside slugs
+ * will resolve the slug `nano_banana_pro` to the `nano_banana_2` entry — silently
+ * billing a different model. So exact slug and alias matches are exhausted
+ * across every entry before labels are considered at all.
+ */
 export function findModelSpec(value: string): ModelSpec | undefined {
   const n = normalize(value);
-  return IMAGE_MODELS.find(
-    (m) =>
-      normalize(m.id) === n ||
-      normalize(m.label) === n ||
-      (m.aliases ?? []).some((a) => normalize(a) === n)
+
+  const byId = IMAGE_MODELS.find((m) => normalize(m.id) === n);
+  if (byId) return byId;
+
+  const byAlias = IMAGE_MODELS.find((m) =>
+    (m.aliases ?? []).some((a) => normalize(a) === n)
   );
+  if (byAlias) return byAlias;
+
+  return IMAGE_MODELS.find((m) => normalize(m.label) === n);
 }
 
 /**
@@ -283,6 +330,7 @@ export function findModelSpec(value: string): ModelSpec | undefined {
 export interface ResolvedModel {
   id: string;
   label: string;
+  architecture?: string;
   blurb: string;
   tier: 1 | 2 | 3;
   aspectRatios: string[];
@@ -348,6 +396,7 @@ export function resolveModels(
     return {
       id: value,
       label: spec?.label ?? prettifyId(value),
+      architecture: spec?.architecture,
       blurb: spec?.blurb ?? "Offered by the server; no catalog entry yet.",
       tier: spec?.tier ?? 3,
       aspectRatios: narrow(schemaAspectRatios, spec?.aspectRatios, known),
@@ -365,10 +414,19 @@ export function resolveModels(
   );
 }
 
-/** The model we land on when the app first loads. */
+/**
+ * The model we land on when the app first loads.
+ *
+ * Prefers an explicit `nano_banana_pro` slug if the server exposes one, then
+ * falls back to `nano_banana_2` (which Higgsfield labels Nano Banana Pro).
+ */
 export function defaultModelId(models: ResolvedModel[]): string {
-  const nano = models.find((m) => findModelSpec(m.id)?.id === "nano_banana_2");
-  return nano?.id ?? models[0]?.id ?? "nano_banana_2";
+  const preferred = ["nano_banana_pro", "nano_banana_2", "nano_banana_flash"];
+  for (const want of preferred) {
+    const hit = models.find((m) => findModelSpec(m.id)?.id === want);
+    if (hit) return hit.id;
+  }
+  return models[0]?.id ?? "nano_banana_2";
 }
 
 /** Ratios we always want offered, in the order they should appear. */

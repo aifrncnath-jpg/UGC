@@ -217,15 +217,65 @@ Tingnan ang CMD window. Kung may pulang error doon, iyon ang tunay na problema.
 
 Simple lang siya, parang website ng Higgsfield:
 
-1. **Pumili ng model** — Nano Banana Pro, GPT Image 2, Soul V2, o kahit alin sa
-   dropdown
+1. **Pumili ng model** — tingnan mo ang slug, hindi ang pangalan (tingnan sa
+   ibaba kung bakit)
 2. **I-type ang prompt mo** — walang idadagdag ang app, exactly kung ano ang
    sinulat mo ang ipapadala
 3. **Piliin ang ratio** — 9:16, 16:9, 4:3, 1:1, at iba pa. Naka-filter siya per
    model, kaya hindi mo mapipili ang hindi supported
 4. **Resolution** — 1K, 2K, o 4K
 5. **Ilan piraso** — 1 hanggang 3
-6. **Generate**
+6. **Reference image** (optional) — para sa character o product consistency
+7. **Generate**
+
+---
+
+## MAHALAGA: tingnan ang slug, hindi ang pangalan
+
+Magkaibang model talaga ang **Nano Banana Pro** at **Nano Banana 2**:
+
+- **Nano Banana Pro** = Gemini 3 Pro Image. Mas magandang quality, mas magaling
+  sa text sa loob ng image, mas mabagal, mga doble ang presyo.
+- **Nano Banana 2** = Gemini 3.1 Flash. 2-3x bilis, mga kalahating presyo, at
+  malapit na rin sa quality ng Pro sa karamihan ng shots.
+
+Eto ang nakakalito: **baliktad ang slug sa pangalan sa Higgsfield.** Sa official
+CLI docs mismo nila:
+
+| Slug na ipapadala | Pangalan sa Higgsfield |
+|---|---|
+| `nano_banana_2` | Nano Banana **Pro** |
+| `nano_banana_flash` | Nano Banana **2** |
+
+Oo, `nano_banana_2` ang Pro. May logic naman: "flash" talaga ang Gemini 3.1 Flash
+na Nano Banana 2. Pero sobrang dali malito.
+
+Kaya sa app, **ang slug ang malaking nakalagay** sa bawat model card, tapos ang
+pangalan at architecture ay maliit sa ilalim. Ang slug ang totoong ipinapadala at
+binabayaran, kaya yun ang tingnan mo.
+
+Kung may makita kang `nano_banana_pro` na hiwalay sa listahan, gamitin mo yun —
+hindi ko siya pinagsama sa `nano_banana_2` para hindi ka mabayaran ng maling
+model nang hindi mo alam.
+
+---
+
+## Reference images
+
+Dalawang paraan:
+
+1. **I-paste ang URL ng image** — palaging gumagana ito
+2. **Mag-upload ng file** — gumagana lang kapag naka-deploy na online ang app
+
+Bakit? Kasi sa **sariling server ng Higgsfield** kinukuha ang reference image.
+Hindi nila kayang abutin ang `localhost` ng PC mo. Sinasabi ito ng app sa iyo
+kapag na-detect niya, hindi siya tahimik na mabibigo.
+
+Kung nasa localhost ka pa: mag-upload muna sa kahit saan (Imgur, Google Drive
+public link, kahit ano) tapos i-paste mo ang URL.
+
+Iba-iba rin ang max reference per model — 14 sa `nano_banana_2`, 8 sa
+`gpt_image_2`, 1 lang sa Soul V2. Awtomatikong nag-a-adjust ang app.
 
 Naka-save lahat sa **Gallery** tab, kasama ang eksaktong settings na ginamit.
 Pwede mong pindutin ang **Reuse** para ibalik ang prompt at settings.

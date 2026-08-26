@@ -31,5 +31,6 @@ export const DATA_DIR =
   process.env.DATA_DIR ?? path.join(process.cwd(), ".data");
 
 export const OUTPUTS_DIR = path.join(DATA_DIR, "outputs");
+export const UPLOADS_DIR = path.join(DATA_DIR, "uploads");
 
 export const CLIENT_NAME = process.env.OAUTH_CLIENT_NAME ?? "Higgsfield Studio";

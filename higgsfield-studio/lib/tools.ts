@@ -328,8 +328,16 @@ export function analyzeImageTool(tool: McpTool): ImageToolInfo {
   // takes resolution (1k/2k/4k), GPT Image 2 takes both, Soul takes quality.
   const resolutionField = pickField(
     fields,
-    ["resolution", "output_resolution", "size"],
-    ["resolution"],
+    [
+      "resolution",
+      "output_resolution",
+      "image_resolution",
+      "size",
+      "image_size",
+      "output_size",
+      "res",
+    ],
+    ["resolution", "size"],
     (f) => f.name !== aspectRatioField
   );
 

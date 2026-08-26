@@ -33,7 +33,9 @@ export interface ToolsInfo {
     resolution: string | null;
     quality: string | null;
     batch: string | null;
+    referenceImages: string | null;
   };
+  referenceIsArray: boolean;
   models: ResolvedModel[];
   defaultModel: string;
   modelsFromSchema: boolean;
@@ -70,6 +72,7 @@ export interface FormState {
   resolution: string;
   quality: string;
   count: number;
+  referenceImages: string[];
   advanced: Record<string, string>;
 }
 
@@ -80,6 +83,7 @@ export const EMPTY_FORM: FormState = {
   resolution: "",
   quality: "",
   count: 1,
+  referenceImages: [],
   advanced: {},
 };
 

@@ -1,13 +1,17 @@
 "use client";
 
-import React from "react";
 import { Label, Note, Select } from "./ui";
 import type { ResolvedModel, ToolsInfo } from "@/lib/client-types";
 
 /**
- * Model chooser. The two the server most likely leads with — Nano Banana Pro and
- * GPT Image 2 — plus Soul V2 are tier 1 and get full cards. Everything else the
- * server offers is one click away in the dropdown, so nothing is hidden.
+ * Model chooser.
+ *
+ * Deliberate design choice: the raw slug is the primary label on each card, with
+ * the friendly name underneath. Higgsfield's own naming is genuinely confusing —
+ * `nano_banana_2` is the one they call "Nano Banana Pro", while
+ * `nano_banana_flash` is the one they call "Nano Banana 2" — so showing a
+ * friendly name alone would hide which model is actually being billed. The slug
+ * is what gets sent, so the slug is what gets shown.
  */
 export function ModelPicker({
   tools,
@@ -63,17 +67,21 @@ export function ModelPicker({
             </option>
             {rest.map((m) => (
               <option key={m.id} value={m.id}>
-                {m.label}
-                {m.known ? "" : "  (not in catalog)"}
+                {m.id}
+                {m.known ? ` — ${m.label}` : "  (not in catalog)"}
               </option>
             ))}
           </Select>
           {selected && !selectedIsFeatured && (
             <div className="mt-2 rounded-xl border border-banana/40 bg-banana/5 px-3.5 py-2.5">
-              <p className="text-xs font-semibold text-banana">
-                {selected.label}
+              <p className="font-mono text-xs font-semibold text-banana">
+                {selected.id}
               </p>
-              <p className="mt-1 text-[11px] leading-relaxed text-zinc-400">
+              <p className="mt-0.5 text-[11px] text-zinc-400">
+                {selected.label}
+                {selected.architecture ? ` · ${selected.architecture}` : ""}
+              </p>
+              <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">
                 {selected.blurb}
               </p>
               <ModelFacts model={selected} />
@@ -82,11 +90,17 @@ export function ModelPicker({
         </div>
       )}
 
-      {!tools.modelsFromSchema && (
+      {tools.modelsFromSchema ? (
+        <p className="text-[11px] leading-relaxed text-zinc-600">
+          These are the exact values the MCP server declared. Names come from
+          Higgsfield&apos;s CLI reference and can be counter-intuitive — the slug
+          is what gets sent, so trust the slug.
+        </p>
+      ) : (
         <Note tone="warn">
           The server did not list its model values in the tool schema, so this is
-          the built-in catalog. If a model is rejected, check the Inspector tab
-          for the exact values it accepts.
+          the built-in catalog and the slugs may not match. Open the Inspector
+          tab, copy the raw schema, and send it over so this can be corrected.
         </Note>
       )}
     </div>
@@ -112,14 +126,30 @@ function ModelCard({
           : "border-line bg-panel2 hover:border-zinc-600"
       }`}
     >
-      <div className="flex items-center justify-between gap-2">
-        <span
-          className={`text-sm font-semibold ${active ? "text-banana" : "text-zinc-200"}`}
-        >
-          {model.label}
-        </span>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <span
+            className={`block truncate font-mono text-sm font-semibold ${active ? "text-banana" : "text-zinc-200"}`}
+          >
+            {model.id}
+          </span>
+          <span className="mt-0.5 block text-[11px] text-zinc-400">
+            {model.label}
+          </span>
+          {model.architecture && (
+            <span className="block text-[10px] text-zinc-600">
+              {model.architecture}
+            </span>
+          )}
+        </div>
         {active && (
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            className="mt-0.5 shrink-0"
+          >
             <path
               d="M20 6L9 17l-5-5"
               stroke="currentColor"
@@ -130,7 +160,7 @@ function ModelCard({
           </svg>
         )}
       </div>
-      <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-500">
+      <p className="mt-2 text-[11px] leading-relaxed text-zinc-500">
         {model.blurb}
       </p>
       <ModelFacts model={model} />
@@ -146,6 +176,11 @@ function ModelFacts({ model }: { model: ResolvedModel }) {
     );
   }
   if (model.qualities.length) facts.push("quality dial");
+  facts.push(
+    model.maxReferences === 0
+      ? "no refs"
+      : `${model.maxReferences} ref${model.maxReferences === 1 ? "" : "s"}`
+  );
   return (
     <div className="mt-2 flex flex-wrap gap-1">
       {facts.map((f) => (

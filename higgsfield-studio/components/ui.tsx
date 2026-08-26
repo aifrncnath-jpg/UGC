@@ -140,10 +140,10 @@ export function Chip({
     <button
       type="button"
       {...props}
-      className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium transition ${
+      className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40 ${
         active
           ? "border-banana bg-banana/15 text-banana"
-          : "border-line bg-panel2 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
+          : "border-line bg-panel2 text-zinc-400 enabled:hover:border-zinc-600 enabled:hover:text-zinc-200"
       } ${props.className ?? ""}`}
     >
       {children}

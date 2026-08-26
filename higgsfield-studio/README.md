@@ -61,27 +61,59 @@ on every cold start. A small VPS or a Fly.io volume is the easier path.
 The picker leads with three models, then puts every other image model the server
 offers one click away in a dropdown:
 
-| Model | Slug sent | Ratios | Resolution / quality |
-| --- | --- | --- | --- |
-| **Nano Banana Pro** | `nano_banana_2` | 10 incl. 9:16, 16:9, 4:3, 1:1, 4:5, 21:9 | 1k / 2k / 4k |
-| **GPT Image 2** | `gpt_image_2` | 7 incl. 9:16, 16:9, 4:3, 1:1 | 1k / 2k / 4k + low/med/high |
-| **Higgsfield Soul V2** | `text2image_soul_v2` | 7 | quality 1.5k / 2k |
+| Slug sent | Higgsfield's name | Actual model | Ratios | Resolution / quality |
+| --- | --- | --- | --- | --- |
+| `nano_banana_2` | Nano Banana Pro | Gemini 3 Pro Image | 10 | 1k / 2k / 4k |
+| `nano_banana_flash` | Nano Banana 2 | Gemini 3.1 Flash | 10 | 1k / 2k / 4k |
+| `gpt_image_2` | GPT Image 2 | OpenAI | 7 | 1k / 2k / 4k + low/med/high |
+| `text2image_soul_v2` | Higgsfield Soul V2 | — | 7 | quality 1.5k / 2k |
 
-Note that Nano Banana Pro's slug is `nano_banana_2`, not `nano_banana_pro` —
-Higgsfield's display name and job type don't line up, and `nano_banana_flash` is
-the one labelled "Nano Banana 2". Guessing here sends you to the wrong model.
+### Read the slug, not the name
 
-**Ratios are filtered per model, and this matters.** The MCP server exposes one
-image tool for every model, so its `aspect_ratio` enum is the *union* of what all
-models accept. Pick 4:5 out of that union with GPT Image 2 selected and the call
-fails, because GPT Image 2 only does 1:1, 4:3, 3:4, 16:9, 9:16, 3:2 and 2:3. So
-`lib/models.ts` keeps per-model constraints and intersects them with the live
-schema — the schema stays authoritative, the catalog only ever narrows.
+Nano Banana Pro and Nano Banana 2 are genuinely different models. Pro is Gemini 3
+Pro Image: higher quality, better in-frame text, slower, roughly double the cost.
+Nano Banana 2 is Gemini 3.1 Flash: 2-3x faster at about half the price, and close
+to Pro quality for most shots.
 
-Switching models keeps your intent: going from Nano Banana Pro at 4:5 to GPT
-Image 2 moves you to 3:4, the nearest legal *portrait* ratio, rather than dumping
-you on 1:1. If an illegal pair still reaches the API it's rejected with a clear
-message **before** the tool call, so it costs no credits.
+The trap is that **Higgsfield's slugs read backwards from their names.** Per
+[their own CLI reference](https://github.com/higgsfield-ai/cli/blob/main/MODELS.md),
+`nano_banana_2` is the one they call "Nano Banana Pro", and `nano_banana_flash` is
+the one they call "Nano Banana 2". That is internally consistent — "flash" really
+is the Flash architecture — but it is very easy to pick the wrong one.
+
+So the UI shows the **raw slug as the primary label** on every model card, with
+the friendly name and architecture underneath. The slug is what gets sent and
+billed, so the slug is what you should trust. `nano_banana_pro` is also listed as
+its own entry in case the MCP server exposes that slug separately; it is
+deliberately not aliased onto `nano_banana_2`, so it can never be silently folded
+into a different model.
+
+### Ratios are filtered per model
+
+**This matters.** The MCP server exposes one image tool for every model, so its
+`aspect_ratio` enum is the *union* of what all models accept. Pick 4:5 out of that
+union with GPT Image 2 selected and the call fails, because GPT Image 2 only does
+1:1, 4:3, 3:4, 16:9, 9:16, 3:2 and 2:3. So `lib/models.ts` keeps per-model
+constraints and intersects them with the live schema — the schema stays
+authoritative, the catalog only ever narrows.
+
+Switching models keeps your intent: going from `nano_banana_2` at 4:5 to
+`gpt_image_2` moves you to 3:4, the nearest legal *portrait* ratio, rather than
+dumping you on 1:1. If an illegal pair still reaches the API it's rejected with a
+clear message **before** the tool call, so it costs no credits.
+
+## Reference images
+
+Paste a hosted image URL, or upload a file. Use them for character or product
+consistency across a batch. The count is capped at whatever the selected model
+accepts — 14 for `nano_banana_2`, 8 for `gpt_image_2`, exactly 1 for Soul V2 — and
+switching to a stricter model trims the list.
+
+One real limitation, surfaced in the UI rather than hidden: **Higgsfield fetches
+reference images from its own servers.** A pasted hosted URL always works. An
+upload only works once this app is deployed somewhere public, because nothing
+outside your machine can read a `localhost` address. The app detects this and
+warns instead of failing silently.
 
 ## Number of images
 

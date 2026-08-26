@@ -45,6 +45,7 @@ const tool: McpTool = {
         type: "string",
         enum: [
           "nano_banana_2",
+          "nano_banana_flash",
           "gpt_image_2",
           "text2image_soul_v2",
           "seedream_v4_5",
@@ -75,6 +76,7 @@ const tool: McpTool = {
       },
       resolution: { type: "string", enum: ["1k", "2k", "4k"], default: "2k" },
       quality: { type: "string", enum: ["low", "medium", "high", "basic"] },
+      image_urls: { type: "array", items: { type: "string" }, maxItems: 14 },
       batch_size: { type: "integer", default: 1, maximum: 4 },
       folder_id: { type: "string" },
     },
@@ -87,9 +89,9 @@ const info = analyzeImageTool(tool);
 check("finds the prompt field", () => {
   assert.equal(info.promptField, "prompt");
 });
-check("finds the model field and its 6 values", () => {
+check("finds the model field and its 7 values", () => {
   assert.equal(info.modelField, "model");
-  assert.equal(info.modelValues.length, 6);
+  assert.equal(info.modelValues.length, 7);
 });
 check("finds aspect_ratio through the anyOf/null wrapper", () => {
   assert.equal(info.aspectRatioField, "aspect_ratio");
@@ -113,8 +115,10 @@ check("leaves folder_id for the Advanced panel", () => {
   ];
   assert.ok(!handled.includes("folder_id"));
 });
-check("maps Nano Banana Pro to the nano_banana_2 slug", () => {
-  assert.equal(findModelSpec("nano_banana_2")?.label, "Nano Banana Pro");
+check("finds the reference image field and its maxItems", () => {
+  assert.equal(info.referenceImageField, "image_urls");
+  assert.equal(info.referenceIsArray, true);
+  assert.equal(info.referenceMaxItems, 14);
 });
 
 console.log("\nAwkward schema shapes (the regression that broke a live run)");
@@ -315,8 +319,26 @@ const models = resolveModels(
 );
 const byId = (id: string) => models.find((m) => m.id === id)!;
 
-check("Nano Banana Pro and GPT Image 2 are both surfaced as tier 1", () => {
+check("nano_banana_2 and nano_banana_flash stay distinct models", () => {
+  // These are genuinely different: Pro is Gemini 3 Pro Image, 2 is Gemini 3.1
+  // Flash. Collapsing them into one entry would bill the wrong model.
+  const pro = byId("nano_banana_2");
+  const two = byId("nano_banana_flash");
+  assert.notEqual(pro.id, two.id);
+  assert.equal(pro.label, "Nano Banana Pro");
+  assert.equal(two.label, "Nano Banana 2");
+  assert.match(pro.architecture ?? "", /Gemini 3 Pro/);
+  assert.match(two.architecture ?? "", /Flash/);
+});
+check("nano_banana_pro is NOT aliased onto nano_banana_2", () => {
+  // If the server ever exposes that slug separately it must appear as its own
+  // option, not be silently folded into another model.
+  assert.equal(findModelSpec("nano_banana_pro")?.id, "nano_banana_pro");
+  assert.equal(findModelSpec("nano_banana_2")?.id, "nano_banana_2");
+});
+check("all three lead models are tier 1", () => {
   assert.equal(byId("nano_banana_2").tier, 1);
+  assert.equal(byId("nano_banana_flash").tier, 1);
   assert.equal(byId("gpt_image_2").tier, 1);
 });
 check("Nano Banana Pro keeps 4:5, 5:4 and 21:9", () => {
@@ -345,9 +367,60 @@ check("the four headline ratios are on both lead models", () => {
 check("9:16 sorts first so vertical is the default reach", () => {
   assert.equal(byId("nano_banana_2").aspectRatios[0], "9:16");
 });
-check("both lead models offer 1k / 2k / 4k", () => {
+check("all three lead models offer 1k / 2k / 4k", () => {
   assert.deepEqual(byId("nano_banana_2").resolutions, ["1k", "2k", "4k"]);
+  assert.deepEqual(byId("nano_banana_flash").resolutions, ["1k", "2k", "4k"]);
   assert.deepEqual(byId("gpt_image_2").resolutions, ["1k", "2k", "4k"]);
+});
+check("resolution survives when the schema omits the enum", () => {
+  // The picker must still offer 1K/2K/4K from the catalog rather than going
+  // blank just because the server didn't enumerate the values.
+  const m = resolveModels(["nano_banana_2"], [], [], [], undefined)[0];
+  assert.deepEqual(m.resolutions, ["1k", "2k", "4k"]);
+});
+check("recognises alternative resolution field names", () => {
+  for (const name of ["output_resolution", "image_size", "output_size"]) {
+    const t: McpTool = {
+      name: "generate_image",
+      inputSchema: {
+        type: "object",
+        properties: {
+          prompt: { type: "string" },
+          aspect_ratio: { type: "string", enum: ["9:16"] },
+          [name]: { type: "string", enum: ["1k", "2k", "4k"] },
+        },
+      },
+    };
+    const i = analyzeImageTool(t);
+    assert.equal(i.resolutionField, name, `failed on ${name}`);
+    assert.deepEqual(i.resolutionValues, ["1k", "2k", "4k"]);
+  }
+});
+check("resolution is never confused with aspect_ratio", () => {
+  const t: McpTool = {
+    name: "generate_image",
+    inputSchema: {
+      type: "object",
+      properties: {
+        prompt: { type: "string" },
+        size: { type: "string", enum: ["1k", "2k"] },
+        aspect_ratio: { type: "string", enum: ["9:16", "1:1"] },
+      },
+    },
+  };
+  const i = analyzeImageTool(t);
+  assert.equal(i.aspectRatioField, "aspect_ratio");
+  assert.equal(i.resolutionField, "size");
+});
+check("sends each of 1k / 2k / 4k through correctly", () => {
+  for (const res of ["1k", "2k", "4k"]) {
+    const { args } = buildArgs(info, {
+      prompt: "x",
+      model: "nano_banana_2",
+      resolution: res,
+    });
+    assert.equal(args.resolution, res);
+  }
 });
 check("GPT Image 2 exposes quality, Nano Banana Pro does not", () => {
   assert.deepEqual(byId("gpt_image_2").qualities, ["low", "medium", "high"]);
@@ -422,6 +495,94 @@ check("rejects a quality value the chosen model does not support", () => {
 });
 check("the image count ceiling is 3", () => {
   assert.equal(MAX_COUNT, 3);
+});
+
+console.log("\nReference images");
+check("sends reference URLs as an array on an array-typed field", () => {
+  const { args } = buildArgs(info, {
+    prompt: "x",
+    model: "nano_banana_2",
+    referenceImages: ["https://ex.com/a.png", "https://ex.com/b.png"],
+  });
+  assert.deepEqual(args.image_urls, [
+    "https://ex.com/a.png",
+    "https://ex.com/b.png",
+  ]);
+});
+check("makes an app-relative upload path absolute", () => {
+  const { args } = buildArgs(info, {
+    prompt: "x",
+    model: "nano_banana_2",
+    referenceImages: ["/api/asset/up-123.png"],
+  });
+  const urls = args.image_urls as string[];
+  // Higgsfield fetches these server-side, so a relative path would never load.
+  assert.ok(/^https?:\/\//.test(urls[0]), `expected absolute, got ${urls[0]}`);
+  assert.ok(urls[0].endsWith("/api/asset/up-123.png"));
+});
+check("warns that a localhost reference cannot be fetched", () => {
+  const { warnings } = buildArgs(info, {
+    prompt: "x",
+    model: "nano_banana_2",
+    referenceImages: ["http://localhost:3000/api/asset/up-1.png"],
+  });
+  assert.ok(warnings.some((w) => /localhost/i.test(w)), warnings.join(" | "));
+});
+check("rejects more references than the model accepts", () => {
+  assert.throws(
+    () =>
+      buildArgs(info, {
+        prompt: "x",
+        model: "text2image_soul_v2",
+        referenceImages: ["https://a.com/1.png", "https://b.com/2.png"],
+      }),
+    InvalidComboError
+  );
+});
+check("Soul V2 accepts exactly one reference", () => {
+  const { args } = buildArgs(info, {
+    prompt: "x",
+    model: "text2image_soul_v2",
+    referenceImages: ["https://a.com/1.png"],
+  });
+  assert.deepEqual(args.image_urls, ["https://a.com/1.png"]);
+});
+check("sends a single string when the field is not an array", () => {
+  const t: McpTool = {
+    name: "generate_image",
+    inputSchema: {
+      type: "object",
+      properties: {
+        prompt: { type: "string" },
+        model: { type: "string", enum: ["nano_banana_2"] },
+        image_url: { type: "string" },
+      },
+    },
+  };
+  const i = analyzeImageTool(t);
+  assert.equal(i.referenceIsArray, false);
+  const { args, warnings } = buildArgs(i, {
+    prompt: "x",
+    model: "nano_banana_2",
+    referenceImages: ["https://a.com/1.png", "https://b.com/2.png"],
+  });
+  assert.equal(args.image_url, "https://a.com/1.png");
+  assert.ok(warnings.some((w) => /single reference/i.test(w)));
+});
+check("warns instead of failing when the tool takes no references", () => {
+  const t: McpTool = {
+    name: "generate_image",
+    inputSchema: {
+      type: "object",
+      properties: { prompt: { type: "string" } },
+    },
+  };
+  const i = analyzeImageTool(t);
+  const { warnings } = buildArgs(i, {
+    prompt: "x",
+    referenceImages: ["https://a.com/1.png"],
+  });
+  assert.ok(warnings.some((w) => /does not accept reference/i.test(w)));
 });
 
 console.log("\nResult parsing");

@@ -25,6 +25,7 @@ export async function GET(req: Request) {
         info.resolutionField,
         info.qualityField,
         info.batchField,
+        info.referenceImageField,
       ].filter(Boolean) as string[]
     );
 
@@ -52,7 +53,9 @@ export async function GET(req: Request) {
         resolution: info.resolutionField ?? null,
         quality: info.qualityField ?? null,
         batch: info.batchField ?? null,
+        referenceImages: info.referenceImageField ?? null,
       },
+      referenceIsArray: info.referenceIsArray,
       models,
       defaultModel: defaultModelId(models),
       /** True when the server enumerated models; false means we guessed. */
