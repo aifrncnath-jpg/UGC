@@ -1,0 +1,17 @@
+node_modules/
+.next/
+out/
+build/
+
+# Holds your live Higgsfield OAuth tokens and generated images.
+# Never commit this.
+.data/
+
+.env
+.env.local
+.env*.local
+
+*.tsbuildinfo
+next-env.d.ts
+.DS_Store
+npm-debug.log*

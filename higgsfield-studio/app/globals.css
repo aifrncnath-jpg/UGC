@@ -1,0 +1,72 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #0a0a0c;
+  --color-panel: #131317;
+  --color-panel2: #1a1a20;
+  --color-line: #2a2a33;
+  --color-banana: #f4d03f;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  background: #0a0a0c;
+  color: #e9e9ee;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  border-color: #2a2a33;
+}
+
+::selection {
+  background: #f4d03f;
+  color: #0a0a0c;
+}
+
+/* Slim scrollbars so long panels don't feel heavy */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #0f0f13;
+}
+::-webkit-scrollbar-thumb {
+  background: #2f2f3a;
+  border-radius: 999px;
+  border: 2px solid #0f0f13;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3f3f4d;
+}
+
+textarea,
+input,
+select {
+  font: inherit;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.shimmer {
+  background-image: linear-gradient(
+    90deg,
+    #16161c 0%,
+    #23232c 50%,
+    #16161c 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
