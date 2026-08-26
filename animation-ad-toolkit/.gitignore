@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+1-STORYBOARD.md
+2-REFERENCE-PROMPTS.md
+3-STILL-PROMPTS.md
+4-VIDEO-PROMPTS.md
+5-TRACKER.md
