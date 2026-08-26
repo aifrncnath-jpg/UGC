@@ -1,0 +1,104 @@
+import type { ResolvedModel } from "./models";
+
+export interface AuthStatus {
+  connected: boolean;
+  redirectUri: string;
+  serverUrl: string;
+  scope?: string;
+  hasRefreshToken?: boolean;
+  expiresAt?: number;
+  expired?: boolean;
+  clientId?: string;
+}
+
+export interface AdvancedField {
+  name: string;
+  kind: "string" | "number" | "integer" | "boolean" | "enum" | "array" | "object";
+  required: boolean;
+  description: string | null;
+  enumValues: string[] | null;
+  default: unknown;
+}
+
+export interface ToolsInfo {
+  ok: true;
+  toolName: string;
+  toolDescription: string | null;
+  statusToolName: string | null;
+  allTools: { name: string; description: string | null }[];
+  mapping: {
+    prompt: string | null;
+    model: string | null;
+    aspectRatio: string | null;
+    resolution: string | null;
+    quality: string | null;
+    batch: string | null;
+    referenceImages: string | null;
+  };
+  referenceIsArray: boolean;
+  models: ResolvedModel[];
+  defaultModel: string;
+  modelsFromSchema: boolean;
+  schemaAspectRatios: string[];
+  maxCount: number;
+  /** True when the tool has its own batch parameter. */
+  hasNativeBatch: boolean;
+  /** True when the tool exposes `use_unlim`. */
+  hasUnlim: boolean;
+  advancedFields: AdvancedField[];
+  rawInputSchema: unknown;
+}
+
+export interface GalleryItemView {
+  id: string;
+  createdAt: number;
+  prompt: string;
+  model: string;
+  params: Record<string, unknown>;
+  images: string[];
+  localImages: string[];
+  status: "pending" | "done" | "error";
+  jobId?: string;
+  error?: string;
+  warnings?: string[];
+  /** The raw MCP tool result. The single most useful thing when nothing appears. */
+  raw?: unknown;
+}
+
+export function imageSrc(item: GalleryItemView): string[] {
+  return item.localImages.length ? item.localImages : item.images;
+}
+
+export interface FormState {
+  prompt: string;
+  model: string;
+  aspectRatio: string;
+  resolution: string;
+  quality: string;
+  count: number;
+  referenceImages: string[];
+  /** true = free allowance (caps count to 1), false = credits. */
+  useUnlim: boolean;
+  advanced: Record<string, string>;
+}
+
+export const EMPTY_FORM: FormState = {
+  prompt: "",
+  model: "",
+  aspectRatio: "9:16",
+  resolution: "",
+  quality: "",
+  count: 1,
+  referenceImages: [],
+  useUnlim: false,
+  advanced: {},
+};
+
+export function findModel(
+  tools: ToolsInfo,
+  id: string
+): ResolvedModel | undefined {
+  return tools.models.find((m) => m.id === id);
+}
+
+export type { ResolvedModel };
