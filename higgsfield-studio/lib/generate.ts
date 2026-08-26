@@ -1,14 +1,26 @@
 import crypto from "node:crypto";
 import { callTool, NotConnectedError, type RawToolResult } from "./mcp";
 import { coerceValue, getImageTool, type ImageToolInfo } from "./tools";
-import { isPending, parseToolResult, type ParsedResult } from "./extract";
+import {
+  isPending,
+  parseToolResult,
+  unlimChoice,
+  type ParsedResult,
+} from "./extract";
 import { ImageDedupe, mirrorRemoteImage, saveBase64Image } from "./assets";
 import { updateStore, type GalleryItem } from "./store";
 import { findModelSpec } from "./models";
 import { appUrl } from "./config";
+import { resolveMedia } from "./media";
 
-/** Hard ceiling on images per generation. Each one costs credits. */
-export const MAX_COUNT = 3;
+/**
+ * Ceiling on images per generation.
+ *
+ * The real schema declares `count` with `minimum: 1, maximum: 4`, and it is a
+ * native parameter, so there is no need to fan out to concurrent calls. Note the
+ * schema also states that `use_unlim: true` caps count to 1.
+ */
+export const MAX_COUNT = 4;
 
 export interface GenerateRequest {
   prompt: string;
@@ -18,8 +30,18 @@ export interface GenerateRequest {
   quality?: string;
   /** 1 to MAX_COUNT. */
   count?: number;
-  /** Public image URLs, or app-relative paths from /api/upload. */
+  /** Public image URLs, or media UUIDs. Registered before use, never sent raw. */
   referenceImages?: string[];
+  /** Role for each reference, when the model requires one. */
+  referenceRole?: string;
+  /**
+   * Which balance pays. `true` uses the free allowance and caps count to 1,
+   * `false` spends credits. Omitting it makes the server ask instead of
+   * generating, so this app always sends an explicit value.
+   */
+  useUnlim?: boolean;
+  /** Preflight the credit cost without submitting a job. */
+  getCost?: boolean;
   advanced?: Record<string, unknown>;
 }
 
@@ -99,12 +121,12 @@ function validateAgainstModel(body: GenerateRequest): void {
  * JSON Schema declares. Anything the schema doesn't declare is dropped rather
  * than sent, because MCP servers reject unexpected properties.
  */
-export function buildArgs(
+export async function buildArgs(
   info: ImageToolInfo,
   body: GenerateRequest,
   /** Written to the batch field when the tool has one. */
   batchCount?: number
-): { args: Record<string, unknown>; warnings: string[] } {
+): Promise<{ args: Record<string, unknown>; warnings: string[] }> {
   validateAgainstModel(body);
 
   const warnings: string[] = [];
@@ -155,14 +177,37 @@ export function buildArgs(
 
   setIfPossible(info.modelField, body.model, "model");
   setIfPossible(info.aspectRatioField, body.aspectRatio, "aspect ratio");
-  setIfPossible(info.resolutionField, body.resolution, "resolution");
-  setIfPossible(info.qualityField, body.quality, "quality");
+
+  /**
+   * Resolution and quality are real Higgsfield parameters but are not declared
+   * in the tool schema — they vary per model. Since the schema accepts extra
+   * properties, pass them through under their documented names rather than
+   * dropping a setting the model genuinely supports.
+   */
+  const passThrough = (
+    declared: string | undefined,
+    name: string,
+    value: string | undefined,
+    label: string
+  ) => {
+    if (!value) return;
+    if (declared) {
+      setIfPossible(declared, value, label);
+    } else if (info.allowsExtraProperties) {
+      args[name] = value;
+    } else {
+      warnings.push(`The tool has no ${label} field, so that value was skipped.`);
+    }
+  };
+
+  passThrough(info.resolutionField, "resolution", body.resolution, "resolution");
+  passThrough(info.qualityField, "quality", body.quality, "quality");
 
   const refs = (body.referenceImages ?? [])
     .map((r) => r.trim())
     .filter(Boolean)
-    // Relative paths come from our own /api/upload, so make them absolute —
-    // Higgsfield fetches these server-side and cannot resolve a relative URL.
+    // Relative paths come from our own /api/upload, so make them absolute before
+    // handing them to the media importer.
     .map((r) => (r.startsWith("/") ? `${appUrl()}${r}` : r));
 
   if (refs.length) {
@@ -171,12 +216,27 @@ export function buildArgs(
       warnings.push(
         "This tool does not accept reference images, so they were skipped."
       );
-    } else {
-      if (refs.some((r) => /localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]/i.test(r))) {
-        warnings.push(
-          "A reference image points at localhost. Higgsfield fetches references from its own servers and cannot reach your machine, so that image will be ignored. Paste an already-hosted image URL, or deploy the app."
-        );
+    } else if (info.referenceIsObjectArray) {
+      /**
+       * The schema is explicit: medias[].value takes a UUID from the media
+       * import/upload tools, and "Do not pass https:// URLs here". Because
+       * additionalProperties is open, a URL would be accepted and then silently
+       * ignored — which is precisely why references seemed to upload fine but had
+       * no effect on the output. So register each reference first, then send ids.
+       */
+      const { medias, warnings: mediaWarnings } = await resolveMedia(refs);
+      warnings.push(...mediaWarnings);
+
+      if (medias.length) {
+        const valueKey = info.referenceValueKey ?? "value";
+        const roleKey = info.referenceRoleKey;
+        const role = body.referenceRole?.trim() || "image";
+        args[f.name] = medias.map((m) => ({
+          [valueKey]: m.value,
+          ...(roleKey ? { [roleKey]: role } : {}),
+        }));
       }
+    } else {
       args[f.name] = info.referenceIsArray ? refs : refs[0];
       if (!info.referenceIsArray && refs.length > 1) {
         warnings.push(
@@ -186,10 +246,34 @@ export function buildArgs(
     }
   }
 
+  /**
+   * Always send an explicit balance choice.
+   *
+   * Per the schema, omitting `use_unlim` makes the server submit NOTHING and
+   * return an `unlim_choice` question instead. That looks identical to a
+   * generation that started and never finished, so the choice is never left open.
+   */
+  if (info.unlimField) {
+    args[info.unlimField] = body.useUnlim === true;
+  }
+
+  if (info.costField && body.getCost) {
+    args[info.costField] = true;
+  }
+
   if (batchCount && batchCount > 1 && info.batchField) {
     const f = field(info.batchField)!;
     const max = typeof f.schema.maximum === "number" ? f.schema.maximum : MAX_COUNT;
-    args[f.name] = Math.min(batchCount, max);
+    const wanted = Math.min(batchCount, max);
+    // use_unlim caps count to 1 server-side; say so rather than let it surprise.
+    if (body.useUnlim === true && wanted > 1) {
+      args[f.name] = 1;
+      warnings.push(
+        `Unlimited mode always generates a single image, so ${wanted} was capped to 1.`
+      );
+    } else {
+      args[f.name] = wanted;
+    }
   }
 
   for (const [key, value] of Object.entries(body.advanced ?? {})) {
@@ -393,6 +477,20 @@ async function runOne(
     };
   }
 
+  // The server can answer with a question instead of a job. Surface it as a
+  // finished-with-error result, never as something still running.
+  const question = unlimChoice(raw);
+  if (question) {
+    return {
+      images: [],
+      localImages: [],
+      pending: false,
+      error: question,
+      raw,
+      reasons: [],
+    };
+  }
+
   // Try to download whatever came back BEFORE concluding anything is pending. A
   // response often carries a job id alongside a finished asset URL, and treating
   // the job id as proof of incompleteness is how a done generation spins forever.
@@ -440,13 +538,13 @@ export async function runGeneration(
   const id = `${Date.now()}-${crypto.randomBytes(3).toString("hex")}`;
   const started = Date.now();
 
-  // Prefer the server's own batch parameter. Only a few Higgsfield image models
-  // expose one, so when it's missing we fan out to concurrent calls instead —
-  // otherwise asking for 3 images would silently return 1.
+  // Higgsfield declares a native `count` (1-4), so one call returns all variants.
+  // The fan-out is only a fallback for a tool that has no batch parameter, where
+  // asking for several images would otherwise quietly return one.
   const useNativeBatch = count > 1 && Boolean(info.batchField);
   const calls = useNativeBatch ? 1 : count;
 
-  const { args, warnings } = buildArgs(
+  const { args, warnings } = await buildArgs(
     info,
     body,
     useNativeBatch ? count : undefined

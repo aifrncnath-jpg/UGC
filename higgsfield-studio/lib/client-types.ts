@@ -43,6 +43,8 @@ export interface ToolsInfo {
   maxCount: number;
   /** True when the tool has its own batch parameter. */
   hasNativeBatch: boolean;
+  /** True when the tool exposes `use_unlim`. */
+  hasUnlim: boolean;
   advancedFields: AdvancedField[];
   rawInputSchema: unknown;
 }
@@ -75,6 +77,8 @@ export interface FormState {
   quality: string;
   count: number;
   referenceImages: string[];
+  /** true = free allowance (caps count to 1), false = credits. */
+  useUnlim: boolean;
   advanced: Record<string, string>;
 }
 
@@ -86,6 +90,7 @@ export const EMPTY_FORM: FormState = {
   quality: "",
   count: 1,
   referenceImages: [],
+  useUnlim: false,
   advanced: {},
 };
 

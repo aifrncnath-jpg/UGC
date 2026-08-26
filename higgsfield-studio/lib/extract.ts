@@ -234,6 +234,24 @@ function normalizeStatus(statuses: string[]): string | undefined {
 }
 
 /**
+ * Detects the `unlim_choice` reply.
+ *
+ * Per the schema, when `use_unlim` is omitted the server submits nothing and
+ * returns this question instead. That is indistinguishable from a generation that
+ * started and stalled unless it is recognised explicitly.
+ */
+export function unlimChoice(result: RawToolResult): string | undefined {
+  const text = JSON.stringify(result ?? {});
+  if (!/unlim_choice/i.test(text)) return undefined;
+
+  const parsed = parseToolResult(result);
+  return (
+    parsed.text ||
+    "Higgsfield asked which balance should pay for this generation, and submitted nothing. Set the Unlimited toggle explicitly and generate again."
+  );
+}
+
+/**
  * True when a result clearly represents an unfinished async generation.
  *
  * Note this is only consulted AFTER download has been attempted. A response can

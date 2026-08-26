@@ -455,6 +455,32 @@ export function Composer({
             </button>
           </div>
 
+          {tools.hasUnlim && (
+            <button
+              type="button"
+              onClick={() => set("useUnlim", !form.useUnlim)}
+              title={
+                form.useUnlim
+                  ? "Paying from your free unlimited allowance. Always one image."
+                  : "Paying with credits."
+              }
+              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                form.useUnlim
+                  ? "border-banana bg-banana/10 text-banana"
+                  : "border-line bg-panel2 text-zinc-400 hover:border-zinc-600"
+              }`}
+            >
+              Unlimited
+              <span
+                className={`relative h-4 w-7 rounded-full transition ${form.useUnlim ? "bg-banana" : "bg-zinc-700"}`}
+              >
+                <span
+                  className={`absolute top-0.5 h-3 w-3 rounded-full bg-ink transition-all ${form.useUnlim ? "left-3.5" : "left-0.5"}`}
+                />
+              </span>
+            </button>
+          )}
+
           <div className="ml-auto">
             <Button
               onClick={onGenerate}

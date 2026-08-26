@@ -29,7 +29,7 @@ export async function POST(req: Request) {
   }
 
   const count = body.count ?? 1;
-  if (!Number.isFinite(count) || count < 1 || count > MAX_COUNT) {
+  if (typeof count !== "number" || !Number.isFinite(count) || count < 1 || count > MAX_COUNT) {
     return NextResponse.json(
       { ok: false, error: `Number of images must be between 1 and ${MAX_COUNT}.` },
       { status: 400 }

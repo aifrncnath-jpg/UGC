@@ -172,6 +172,7 @@ export function Studio() {
           quality: form.quality || undefined,
           count: form.count,
           referenceImages: form.referenceImages,
+          useUnlim: form.useUnlim,
           advanced: form.advanced,
         }),
       });

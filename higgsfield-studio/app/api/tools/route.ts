@@ -26,6 +26,8 @@ export async function GET(req: Request) {
         info.qualityField,
         info.batchField,
         info.referenceImageField,
+        info.unlimField,
+        info.costField,
       ].filter(Boolean) as string[]
     );
 
@@ -63,6 +65,7 @@ export async function GET(req: Request) {
       schemaAspectRatios: sortRatios(info.aspectRatioValues),
       maxCount: MAX_COUNT,
       hasNativeBatch: Boolean(info.batchField),
+      hasUnlim: Boolean(info.unlimField),
       advancedFields: info.fields
         .filter((f) => !handled.has(f.name))
         .map((f) => ({

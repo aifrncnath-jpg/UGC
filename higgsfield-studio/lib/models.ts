@@ -409,9 +409,12 @@ export function resolveModels(
     };
   });
 
-  return resolved.sort(
-    (a, b) => a.tier - b.tier || a.label.localeCompare(b.label)
-  );
+  // Sort ratios here rather than leaving it to each caller. Higgsfield's
+  // aspect_ratio has no enum, so these come from the catalog in catalog order,
+  // and a caller that forgot to sort would put 1:1 first instead of 9:16.
+  return resolved
+    .map((m) => ({ ...m, aspectRatios: sortRatios(m.aspectRatios) }))
+    .sort((a, b) => a.tier - b.tier || a.label.localeCompare(b.label));
 }
 
 /**

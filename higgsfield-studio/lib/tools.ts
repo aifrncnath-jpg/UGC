@@ -37,6 +37,17 @@ export interface ImageToolInfo {
   referenceImageField?: string;
   referenceIsArray: boolean;
   referenceMaxItems?: number;
+  /** True when references are `{ value, role }` objects rather than strings. */
+  referenceIsObjectArray: boolean;
+  referenceValueKey?: string;
+  referenceRoleKey?: string;
+  referenceRoleRequired: boolean;
+  /** True when undeclared arguments are accepted (and silently ignored if wrong). */
+  allowsExtraProperties: boolean;
+  /** `use_unlim`: pay from the free allowance instead of credits. */
+  unlimField?: string;
+  /** `get_cost`: preflight the credit cost without generating. */
+  costField?: string;
   /** Set when the server nests all arguments under one wrapper property. */
   wrapperKey?: string;
   /** Best guess at the Nano Banana Pro model value, if the server enumerates it. */
@@ -146,6 +157,16 @@ function collectProperties(
   }
 
   return { props, required };
+}
+
+/** Reads additionalProperties off the branch that actually holds the arguments. */
+function flattenAdditional(root: JsonSchema, wrapperKey: string): unknown {
+  const wrapper = root.properties?.[wrapperKey];
+  if (!wrapper) return undefined;
+  const branches = wrapper.anyOf ?? wrapper.oneOf ?? [];
+  const objectBranch =
+    branches.find((b) => b.type === "object" || b.properties) ?? wrapper;
+  return objectBranch.additionalProperties;
 }
 
 /** Property names that are conventionally a wrapper around the real arguments. */
@@ -359,6 +380,8 @@ export function analyzeImageTool(tool: McpTool): ImageToolInfo {
   const referenceImageField = pickField(
     fields,
     [
+      "medias",
+      "media",
       "image_urls",
       "reference_images",
       "input_images",
@@ -367,12 +390,53 @@ export function analyzeImageTool(tool: McpTool): ImageToolInfo {
       "reference_image",
       "image",
     ],
-    ["image_url", "reference", "input_image", "image"],
+    ["media", "image_url", "reference", "input_image", "image"],
     (f) => f.name !== promptField
   );
 
   const refField = byName(referenceImageField);
   const referenceIsArray = refField?.kind === "array";
+
+  /**
+   * Higgsfield's real reference field is `medias`, an array of
+   * `{ value, role }` objects where `value` is a media UUID — explicitly NOT a
+   * URL. Detect that shape so the caller sends objects rather than strings, and
+   * learn the required keys from the schema instead of assuming them.
+   */
+  const refItems = (() => {
+    const raw = refField?.schema?.items;
+    const item = Array.isArray(raw) ? raw[0] : raw;
+    return item && typeof item === "object" ? (item as JsonSchema) : undefined;
+  })();
+  const referenceItemProps = Object.keys(refItems?.properties ?? {});
+  const referenceIsObjectArray =
+    referenceIsArray && referenceItemProps.length > 0;
+  const referenceValueKey = referenceIsObjectArray
+    ? (referenceItemProps.find((p) => /^(value|id|media_id|uuid)$/i.test(p)) ??
+      referenceItemProps[0])
+    : undefined;
+  const referenceRoleKey = referenceIsObjectArray
+    ? referenceItemProps.find((p) => /^(role|type|kind|purpose)$/i.test(p))
+    : undefined;
+  const referenceRoleRequired = Boolean(
+    referenceRoleKey && (refItems?.required ?? []).includes(referenceRoleKey)
+  );
+
+  /**
+   * When the schema allows extra properties, model-specific dials that aren't
+   * declared — Higgsfield's `resolution` and `quality`, for instance — can still
+   * be passed through. Worth knowing, because a permissive schema also means a
+   * wrong field is accepted and then silently ignored rather than rejected.
+   */
+  const rootSchema = tool.inputSchema ?? {};
+  const inner = wrapperKey
+    ? flattenAdditional(rootSchema, wrapperKey)
+    : rootSchema.additionalProperties;
+  const allowsExtraProperties =
+    inner === true || (typeof inner === "object" && inner !== null);
+
+  const unlimField = pickField(fields, ["use_unlim", "unlim"], ["unlim"]);
+  const costField = pickField(fields, ["get_cost"], ["get_cost"]);
   const rawMaxItems = refField?.schema?.maxItems;
   const referenceMaxItems =
     typeof rawMaxItems === "number"
@@ -407,6 +471,13 @@ export function analyzeImageTool(tool: McpTool): ImageToolInfo {
     referenceImageField,
     referenceIsArray,
     referenceMaxItems,
+    referenceIsObjectArray,
+    referenceValueKey,
+    referenceRoleKey,
+    referenceRoleRequired,
+    allowsExtraProperties,
+    unlimField,
+    costField,
     wrapperKey,
     nanoBananaProValue,
     nanoBananaValues,

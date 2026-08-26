@@ -1,13 +1,19 @@
 /**
  * Offline verification of the schema-adaptive layer.
  *
- * Feeds simulated `generate_image` schemas through the real analyze / resolve /
- * buildArgs path and asserts the interesting behaviour. No network, no auth.
+ * The primary fixture is now the REAL `generate_image` schema from the live
+ * Higgsfield MCP server, captured via the Inspector tab. Everything before this
+ * was tested against a guess, and each of those guesses turned out to be wrong in
+ * a way that broke the app:
  *
- * The "awkward schema shapes" section exists because a real run against
- * Higgsfield failed with "no field that looks like a prompt" — the walker only
- * read top-level `properties`, so $ref, anyOf composition and wrapper objects
- * all came back empty. Those are now covered here.
+ *   - arguments are nested under a `params` wrapper that is `anyOf: [object, string]`
+ *   - `count` is a native parameter with maximum 4, so no fan-out is needed
+ *   - `aspect_ratio` has NO enum, it is a plain string
+ *   - `resolution` and `quality` are not declared at all, but
+ *     `additionalProperties` is open so they can still be passed through
+ *   - references are `medias: [{ value, role }]` where value is a media UUID.
+ *     The schema says outright: "Do not pass https:// URLs here."
+ *   - omitting `use_unlim` makes the server return a question and submit NOTHING
  *
  * Run: npm run verify
  */
@@ -16,753 +22,511 @@ import { analyzeImageTool, describeFields } from "../lib/tools";
 import type { McpTool } from "../lib/mcp";
 import { resolveModels, sortRatios, findModelSpec } from "../lib/models";
 import { buildArgs, InvalidComboError, MAX_COUNT } from "../lib/generate";
-import { parseToolResult, isPending } from "../lib/extract";
+import { parseToolResult, isPending, unlimChoice } from "../lib/extract";
 import { ImageDedupe } from "../lib/assets";
+import { extractMediaId } from "../lib/media";
 
 let passed = 0;
+const failures: string[] = [];
+
+function record(name: string, err: unknown) {
+  const message = err instanceof Error ? err.message : String(err);
+  failures.push(name);
+  console.error(`  FAIL  ${name}`);
+  console.error(`        ${message.split("\n").slice(0, 6).join("\n        ")}`);
+  process.exitCode = 1;
+}
+
 function check(name: string, fn: () => void) {
   try {
     fn();
     passed++;
     console.log(`  ok  ${name}`);
   } catch (err) {
-    console.error(`  FAIL  ${name}`);
-    console.error(`        ${err instanceof Error ? err.message : String(err)}`);
-    process.exitCode = 1;
+    record(name, err);
   }
 }
 
-// A plausible Higgsfield generate_image schema: the aspect_ratio enum is the
-// UNION across all models, which is exactly the trap we're guarding against.
-const tool: McpTool = {
+async function checkAsync(name: string, fn: () => Promise<void>) {
+  try {
+    await fn();
+    passed++;
+    console.log(`  ok  ${name}`);
+  } catch (err) {
+    record(name, err);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* The real schema, exactly as the server returns it.                  */
+/* ------------------------------------------------------------------ */
+
+const REAL_TOOL: McpTool = {
   name: "generate_image",
-  description: "Generate an image with any Higgsfield image model.",
   inputSchema: {
     type: "object",
-    required: ["prompt", "model"],
     properties: {
-      prompt: { type: "string", description: "What to generate" },
-      model: {
-        type: "string",
-        enum: [
-          "nano_banana_2",
-          "nano_banana_flash",
-          "gpt_image_2",
-          "text2image_soul_v2",
-          "seedream_v4_5",
-          "flux_2",
-          "some_brand_new_model",
-        ],
-      },
-      aspect_ratio: {
+      params: {
         anyOf: [
           {
-            type: "string",
-            enum: [
-              "1:1",
-              "3:2",
-              "2:3",
-              "4:3",
-              "3:4",
-              "4:5",
-              "5:4",
-              "9:16",
-              "16:9",
-              "21:9",
-            ],
+            type: "object",
+            properties: {
+              model: {
+                type: "string",
+                description: "Model ID from the model catalog (required).",
+              },
+              prompt: {
+                description: "Text description of what to generate.",
+                type: "string",
+              },
+              count: {
+                default: 1,
+                description:
+                  "Number of variants (1-4) generated from this same prompt.",
+                type: "integer",
+                minimum: 1,
+                maximum: 4,
+              },
+              aspect_ratio: { type: "string" },
+              medias: {
+                description: "Reference media inputs.",
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    value: {
+                      type: "string",
+                      description:
+                        "UUID from media_upload/media_import_url or job_id from a prior generation. Do not pass https:// URLs here.",
+                    },
+                    role: {
+                      type: "string",
+                      description: "Role — varies by model.",
+                    },
+                  },
+                  required: ["value", "role"],
+                },
+              },
+              get_cost: {
+                description: "If true, return the cost in credits.",
+                type: "boolean",
+              },
+              use_unlim: {
+                description:
+                  "Which balance pays. OMIT IT to let the server decide.",
+                type: "boolean",
+              },
+            },
+            required: ["model"],
+            additionalProperties: {},
           },
-          { type: "null" },
+          { type: "string" },
         ],
-        default: "1:1",
       },
-      resolution: { type: "string", enum: ["1k", "2k", "4k"], default: "2k" },
-      quality: { type: "string", enum: ["low", "medium", "high", "basic"] },
-      image_urls: { type: "array", items: { type: "string" }, maxItems: 14 },
-      batch_size: { type: "integer", default: 1, maximum: 4 },
-      folder_id: { type: "string" },
     },
+    required: ["params"],
+    $schema: "https://json-schema.org/draft/2020-12/schema",
   },
 };
 
-console.log("\nSchema introspection");
-const info = analyzeImageTool(tool);
+async function main() {
+  console.log("\nReal Higgsfield schema — structure");
+  const info = analyzeImageTool(REAL_TOOL);
 
-check("finds the prompt field", () => {
-  assert.equal(info.promptField, "prompt");
-});
-check("finds the model field and its 7 values", () => {
-  assert.equal(info.modelField, "model");
-  assert.equal(info.modelValues.length, 7);
-});
-check("finds aspect_ratio through the anyOf/null wrapper", () => {
-  assert.equal(info.aspectRatioField, "aspect_ratio");
-  assert.equal(info.aspectRatioValues.length, 10);
-});
-check("keeps resolution and quality as separate dials", () => {
-  assert.equal(info.resolutionField, "resolution");
-  assert.equal(info.qualityField, "quality");
-});
-check("finds the batch field", () => {
-  assert.equal(info.batchField, "batch_size");
-});
-check("leaves folder_id for the Advanced panel", () => {
-  const handled = [
-    info.promptField,
-    info.modelField,
-    info.aspectRatioField,
-    info.resolutionField,
-    info.qualityField,
-    info.batchField,
-  ];
-  assert.ok(!handled.includes("folder_id"));
-});
-check("finds the reference image field and its maxItems", () => {
-  assert.equal(info.referenceImageField, "image_urls");
-  assert.equal(info.referenceIsArray, true);
-  assert.equal(info.referenceMaxItems, 14);
-});
+  check("descends into the `params` wrapper", () => {
+    assert.equal(info.wrapperKey, "params");
+  });
+  check("finds prompt and model inside the anyOf object branch", () => {
+    assert.equal(info.promptField, "prompt");
+    assert.equal(info.modelField, "model");
+  });
+  check("finds aspect_ratio even though it has no enum", () => {
+    assert.equal(info.aspectRatioField, "aspect_ratio");
+    assert.deepEqual(info.aspectRatioValues, []);
+  });
+  check("recognises `count` as the batch field, max 4", () => {
+    assert.equal(info.batchField, "count");
+    assert.equal(info.fields.find((f) => f.name === "count")?.schema.maximum, 4);
+  });
+  check("MAX_COUNT matches the schema maximum of 4", () => {
+    assert.equal(MAX_COUNT, 4);
+  });
+  check("finds use_unlim and get_cost", () => {
+    assert.equal(info.unlimField, "use_unlim");
+    assert.equal(info.costField, "get_cost");
+  });
+  check("sees that additionalProperties is open", () => {
+    // This is what lets undeclared resolution/quality through — and also why a
+    // wrong field is accepted and silently ignored rather than rejected.
+    assert.equal(info.allowsExtraProperties, true);
+  });
+  check("declares NO resolution or quality field", () => {
+    assert.equal(info.resolutionField, undefined);
+    assert.equal(info.qualityField, undefined);
+  });
 
-console.log("\nAwkward schema shapes (the regression that broke a live run)");
+  console.log("\nReferences: medias objects, not URLs");
+  check("detects medias as an array of objects with value + role", () => {
+    assert.equal(info.referenceImageField, "medias");
+    assert.equal(info.referenceIsArray, true);
+    assert.equal(info.referenceIsObjectArray, true);
+    assert.equal(info.referenceValueKey, "value");
+    assert.equal(info.referenceRoleKey, "role");
+    assert.equal(info.referenceRoleRequired, true);
+  });
 
-check("resolves $ref into $defs", () => {
-  const t: McpTool = {
-    name: "generate_image",
-    inputSchema: {
-      $ref: "#/$defs/Input",
-      $defs: {
-        Input: {
-          type: "object",
-          required: ["prompt"],
-          properties: {
-            prompt: { type: "string" },
-            model: { type: "string", enum: ["nano_banana_2"] },
-          },
-        },
-      },
-    },
-  };
-  const i = analyzeImageTool(t);
-  assert.equal(i.promptField, "prompt");
-  assert.equal(i.modelField, "model");
-});
+  await checkAsync("a media UUID is passed through as an object", async () => {
+    const uuid = "0f8fad5b-d9cb-469f-a165-70867728950e";
+    const { args } = await buildArgs(info, {
+      prompt: "x",
+      model: "nano_banana_2",
+      referenceImages: [uuid],
+    });
+    const params = args.params as Record<string, unknown>;
+    assert.deepEqual(params.medias, [{ value: uuid, role: "image" }]);
+  });
 
-check("resolves a $ref on an individual property", () => {
-  const t: McpTool = {
-    name: "generate_image",
-    inputSchema: {
-      type: "object",
-      definitions: {
-        Ratio: { type: "string", enum: ["1:1", "9:16", "16:9"] },
-      },
-      properties: {
-        prompt: { type: "string" },
-        aspect_ratio: { $ref: "#/definitions/Ratio" },
-      },
-    },
-  };
-  const i = analyzeImageTool(t);
-  assert.deepEqual(i.aspectRatioValues, ["1:1", "9:16", "16:9"]);
-});
+  await checkAsync("an https URL is NEVER placed in medias[].value", async () => {
+    // The regression that made references appear to upload but do nothing. There
+    // is no media import tool in this offline run, so the reference must be
+    // dropped with a warning rather than sent as a raw URL.
+    const { args, warnings } = await buildArgs(info, {
+      prompt: "x",
+      model: "nano_banana_2",
+      referenceImages: ["https://example.com/ref.png"],
+    });
+    const params = args.params as Record<string, unknown>;
+    const serialised = JSON.stringify(params.medias ?? []);
+    assert.ok(
+      !/https?:\/\//.test(serialised),
+      `a URL leaked into medias: ${serialised}`
+    );
+    assert.ok(warnings.length > 0, "expected a warning about the reference");
+  });
 
-check("merges properties out of allOf", () => {
-  const t: McpTool = {
-    name: "generate_image",
-    inputSchema: {
-      allOf: [
-        { type: "object", properties: { prompt: { type: "string" } } },
+  await checkAsync("a localhost reference is refused with a reason", async () => {
+    const { args, warnings } = await buildArgs(info, {
+      prompt: "x",
+      model: "nano_banana_2",
+      referenceImages: ["http://localhost:3000/api/asset/up-1.png"],
+    });
+    const params = args.params as Record<string, unknown>;
+    assert.ok(!params.medias || (params.medias as unknown[]).length === 0);
+    assert.ok(warnings.some((w) => /local address|localhost/i.test(w)));
+  });
+
+  check("extractMediaId pulls a UUID out of a nested response", () => {
+    const id = extractMediaId({
+      content: [
         {
-          type: "object",
-          properties: { model: { type: "string", enum: ["gpt_image_2"] } },
+          type: "text",
+          text: '{"media":{"id":"0f8fad5b-d9cb-469f-a165-70867728950e"}}',
         },
       ],
-    },
-  };
-  const i = analyzeImageTool(t);
-  assert.equal(i.promptField, "prompt");
-  assert.deepEqual(i.modelValues, ["gpt_image_2"]);
-});
+    });
+    assert.equal(id, "0f8fad5b-d9cb-469f-a165-70867728950e");
+  });
 
-check("unions properties across a top-level anyOf", () => {
-  const t: McpTool = {
-    name: "generate_image",
-    inputSchema: {
-      anyOf: [
-        {
-          type: "object",
-          required: ["prompt"],
-          properties: {
-            prompt: { type: "string" },
-            resolution: { type: "string", enum: ["1k", "2k"] },
-          },
-        },
-        {
-          type: "object",
-          properties: { quality: { type: "string", enum: ["low", "high"] } },
-        },
+  console.log("\nBalance choice (use_unlim)");
+  await checkAsync("always sends an explicit use_unlim", async () => {
+    // Omitting it makes the server ask a question and submit nothing, which is
+    // indistinguishable from a job that started and stalled.
+    const { args } = await buildArgs(info, { prompt: "x", model: "nano_banana_2" });
+    const params = args.params as Record<string, unknown>;
+    assert.equal(params.use_unlim, false);
+  });
+  await checkAsync("unlimited mode caps count to 1 and says so", async () => {
+    const { args, warnings } = await buildArgs(
+      info,
+      { prompt: "x", model: "nano_banana_2", useUnlim: true },
+      4
+    );
+    const params = args.params as Record<string, unknown>;
+    assert.equal(params.count, 1);
+    assert.equal(params.use_unlim, true);
+    assert.ok(warnings.some((w) => /single image|capped/i.test(w)));
+  });
+  check("recognises an unlim_choice reply as a finished question", () => {
+    const raw = {
+      content: [
+        { type: "text", text: "unlim_choice: use your free allowance or credits?" },
       ],
-    },
-  };
-  const i = analyzeImageTool(t);
-  assert.equal(i.promptField, "prompt");
-  assert.deepEqual(i.resolutionValues, ["1k", "2k"]);
-  assert.deepEqual(i.qualityValues, ["low", "high"]);
-});
+    };
+    assert.ok(unlimChoice(raw));
+    assert.equal(unlimChoice({ content: [{ type: "text", text: "ok" }] }), undefined);
+  });
 
-check("descends into a single wrapper object and nests args back", () => {
-  const t: McpTool = {
-    name: "generate_image",
-    inputSchema: {
-      type: "object",
-      required: ["params"],
-      properties: {
-        params: {
-          type: "object",
-          required: ["prompt"],
-          properties: {
-            prompt: { type: "string" },
-            model: { type: "string", enum: ["nano_banana_2"] },
-            aspect_ratio: { type: "string", enum: ["9:16", "1:1"] },
-          },
-        },
+  console.log("\nArguments land inside `params`");
+  await checkAsync("everything is nested under params", async () => {
+    const { args } = await buildArgs(
+      info,
+      {
+        prompt: "a mom in a kitchen",
+        model: "nano_banana_2",
+        aspectRatio: "9:16",
+        resolution: "4k",
       },
-    },
-  };
-  const i = analyzeImageTool(t);
-  assert.equal(i.wrapperKey, "params");
-  assert.equal(i.promptField, "prompt");
-
-  const { args } = buildArgs(i, {
-    prompt: "hello",
-    model: "nano_banana_2",
-    aspectRatio: "9:16",
+      2
+    );
+    assert.deepEqual(Object.keys(args), ["params"]);
+    const params = args.params as Record<string, unknown>;
+    assert.equal(params.prompt, "a mom in a kitchen");
+    assert.equal(params.model, "nano_banana_2");
+    assert.equal(params.aspect_ratio, "9:16");
+    assert.equal(params.count, 2);
   });
-  // The wrapper has to be restored, or the server sees no arguments at all.
-  assert.deepEqual(args, {
-    params: { prompt: "hello", model: "nano_banana_2", aspect_ratio: "9:16" },
+  await checkAsync(
+    "undeclared resolution passes through, since extras are allowed",
+    async () => {
+      const { args } = await buildArgs(info, {
+        prompt: "x",
+        model: "nano_banana_2",
+        resolution: "2k",
+      });
+      const params = args.params as Record<string, unknown>;
+      assert.equal(params.resolution, "2k");
+    }
+  );
+  await checkAsync("the prompt is sent verbatim", async () => {
+    const text = "exactly what I typed, nothing appended";
+    const { args } = await buildArgs(info, { prompt: text, model: "nano_banana_2" });
+    assert.equal((args.params as Record<string, unknown>).prompt, text);
   });
-});
+  await checkAsync("count is clamped to the schema maximum", async () => {
+    const { args } = await buildArgs(info, { prompt: "x", model: "nano_banana_2" }, 9);
+    assert.equal((args.params as Record<string, unknown>).count, 4);
+  });
 
-check("does not mistake a normal 3-field schema for a wrapper", () => {
-  const { wrapperKey } = describeFields(tool);
-  assert.equal(wrapperKey, undefined);
-});
+  console.log("\nPer-model narrowing");
+  const models = resolveModels(
+    ["nano_banana_2", "nano_banana_flash", "gpt_image_2", "text2image_soul_v2"],
+    sortRatios(info.aspectRatioValues),
+    info.resolutionValues,
+    info.qualityValues,
+    info.referenceMaxItems
+  );
+  const byId = (id: string) => models.find((m) => m.id === id)!;
 
-check("finds an unconventionally named prompt field", () => {
-  for (const name of ["text_prompt", "input_text", "caption", "description"]) {
+  check("ratios come from the catalog when the schema has no enum", () => {
+    // aspect_ratio is a bare string here, so without the catalog there would be
+    // no picker at all.
+    const r = byId("nano_banana_2").aspectRatios;
+    assert.ok(r.length > 0);
+    for (const want of ["9:16", "16:9", "4:3", "1:1"]) {
+      assert.ok(r.includes(want), `missing ${want}`);
+    }
+    assert.equal(r[0], "9:16");
+  });
+  check("resolutions survive the schema declaring none", () => {
+    assert.deepEqual(byId("nano_banana_2").resolutions, ["1k", "2k", "4k"]);
+  });
+  check("nano_banana_2 and nano_banana_flash stay distinct", () => {
+    assert.equal(byId("nano_banana_2").label, "Nano Banana Pro");
+    assert.equal(byId("nano_banana_flash").label, "Nano Banana 2");
+    assert.match(byId("nano_banana_2").architecture ?? "", /Gemini 3 Pro/);
+    assert.match(byId("nano_banana_flash").architecture ?? "", /Flash/);
+  });
+  check("nano_banana_pro is not aliased onto nano_banana_2", () => {
+    assert.equal(findModelSpec("nano_banana_pro")?.id, "nano_banana_pro");
+    assert.equal(findModelSpec("nano_banana_2")?.id, "nano_banana_2");
+  });
+  check("GPT Image 2 keeps its narrower ratio list", () => {
+    const r = byId("gpt_image_2").aspectRatios;
+    for (const gone of ["4:5", "5:4", "21:9"]) {
+      assert.ok(!r.includes(gone), `${gone} should be filtered out`);
+    }
+  });
+  await checkAsync("an illegal ratio is refused before any tool call", async () => {
+    await assert.rejects(
+      () => buildArgs(info, { prompt: "x", model: "gpt_image_2", aspectRatio: "4:5" }),
+      InvalidComboError
+    );
+  });
+
+  console.log("\nAwkward schema shapes");
+  check("resolves $ref into $defs", () => {
     const t: McpTool = {
       name: "generate_image",
       inputSchema: {
-        type: "object",
-        required: [name],
-        properties: { [name]: { type: "string" } },
+        $ref: "#/$defs/Input",
+        $defs: {
+          Input: {
+            type: "object",
+            required: ["prompt"],
+            properties: {
+              prompt: { type: "string" },
+              model: { type: "string", enum: ["nano_banana_2"] },
+            },
+          },
+        },
       },
     };
-    assert.equal(analyzeImageTool(t).promptField, name, `failed on ${name}`);
-  }
-});
-
-check("falls back to the first required free-text field", () => {
-  const t: McpTool = {
-    name: "generate_image",
-    inputSchema: {
-      type: "object",
-      required: ["scene_brief"],
-      properties: {
-        model: { type: "string", enum: ["nano_banana_2"] },
-        scene_brief: { type: "string" },
-        folder_id: { type: "string" },
+    assert.equal(analyzeImageTool(t).promptField, "prompt");
+  });
+  check("merges properties out of allOf", () => {
+    const t: McpTool = {
+      name: "generate_image",
+      inputSchema: {
+        allOf: [
+          { type: "object", properties: { prompt: { type: "string" } } },
+          {
+            type: "object",
+            properties: { model: { type: "string", enum: ["gpt_image_2"] } },
+          },
+        ],
       },
-    },
-  };
-  assert.equal(analyzeImageTool(t).promptField, "scene_brief");
-});
-
-check("never picks negative_prompt or enhance_prompt as the prompt", () => {
-  const t: McpTool = {
-    name: "generate_image",
-    inputSchema: {
-      type: "object",
-      properties: {
-        negative_prompt: { type: "string" },
-        style_prompt: { type: "string" },
-        prompt: { type: "string" },
-      },
-    },
-  };
-  assert.equal(analyzeImageTool(t).promptField, "prompt");
-});
-
-check("reports the fields it saw when no prompt can be found", () => {
-  const t: McpTool = {
-    name: "generate_image",
-    inputSchema: {
-      type: "object",
-      properties: { model: { type: "string", enum: ["a"] } },
-    },
-  };
-  const i = analyzeImageTool(t);
-  assert.throws(
-    () => buildArgs(i, { prompt: "x" }),
-    (err: unknown) =>
-      err instanceof Error &&
-      /Fields found: model/.test(err.message) &&
-      /Inspector/.test(err.message)
-  );
-});
-
-console.log("\nPer-model narrowing");
-const models = resolveModels(
-  info.modelValues,
-  sortRatios(info.aspectRatioValues),
-  info.resolutionValues,
-  info.qualityValues,
-  info.referenceMaxItems
-);
-const byId = (id: string) => models.find((m) => m.id === id)!;
-
-check("nano_banana_2 and nano_banana_flash stay distinct models", () => {
-  // These are genuinely different: Pro is Gemini 3 Pro Image, 2 is Gemini 3.1
-  // Flash. Collapsing them into one entry would bill the wrong model.
-  const pro = byId("nano_banana_2");
-  const two = byId("nano_banana_flash");
-  assert.notEqual(pro.id, two.id);
-  assert.equal(pro.label, "Nano Banana Pro");
-  assert.equal(two.label, "Nano Banana 2");
-  assert.match(pro.architecture ?? "", /Gemini 3 Pro/);
-  assert.match(two.architecture ?? "", /Flash/);
-});
-check("nano_banana_pro is NOT aliased onto nano_banana_2", () => {
-  // If the server ever exposes that slug separately it must appear as its own
-  // option, not be silently folded into another model.
-  assert.equal(findModelSpec("nano_banana_pro")?.id, "nano_banana_pro");
-  assert.equal(findModelSpec("nano_banana_2")?.id, "nano_banana_2");
-});
-check("all three lead models are tier 1", () => {
-  assert.equal(byId("nano_banana_2").tier, 1);
-  assert.equal(byId("nano_banana_flash").tier, 1);
-  assert.equal(byId("gpt_image_2").tier, 1);
-});
-check("Nano Banana Pro keeps 4:5, 5:4 and 21:9", () => {
-  const r = byId("nano_banana_2").aspectRatios;
-  for (const want of ["4:5", "5:4", "21:9", "9:16", "16:9", "1:1", "4:3"]) {
-    assert.ok(r.includes(want), `expected ${want}`);
-  }
-});
-check("GPT Image 2 drops 4:5, 5:4 and 21:9", () => {
-  const r = byId("gpt_image_2").aspectRatios;
-  for (const gone of ["4:5", "5:4", "21:9"]) {
-    assert.ok(!r.includes(gone), `${gone} should be filtered out`);
-  }
-  for (const want of ["9:16", "16:9", "1:1", "4:3", "3:4", "3:2", "2:3"]) {
-    assert.ok(r.includes(want), `expected ${want}`);
-  }
-});
-check("the four headline ratios are on both lead models", () => {
-  for (const id of ["nano_banana_2", "gpt_image_2"]) {
-    const r = byId(id).aspectRatios;
-    for (const want of ["9:16", "16:9", "4:3", "1:1"]) {
-      assert.ok(r.includes(want), `${id} missing ${want}`);
-    }
-  }
-});
-check("9:16 sorts first so vertical is the default reach", () => {
-  assert.equal(byId("nano_banana_2").aspectRatios[0], "9:16");
-});
-check("all three lead models offer 1k / 2k / 4k", () => {
-  assert.deepEqual(byId("nano_banana_2").resolutions, ["1k", "2k", "4k"]);
-  assert.deepEqual(byId("nano_banana_flash").resolutions, ["1k", "2k", "4k"]);
-  assert.deepEqual(byId("gpt_image_2").resolutions, ["1k", "2k", "4k"]);
-});
-check("resolution survives when the schema omits the enum", () => {
-  // The picker must still offer 1K/2K/4K from the catalog rather than going
-  // blank just because the server didn't enumerate the values.
-  const m = resolveModels(["nano_banana_2"], [], [], [], undefined)[0];
-  assert.deepEqual(m.resolutions, ["1k", "2k", "4k"]);
-});
-check("recognises alternative resolution field names", () => {
-  for (const name of ["output_resolution", "image_size", "output_size"]) {
+    };
+    const i = analyzeImageTool(t);
+    assert.equal(i.promptField, "prompt");
+    assert.deepEqual(i.modelValues, ["gpt_image_2"]);
+  });
+  check("does not mistake a normal schema for a wrapper", () => {
     const t: McpTool = {
       name: "generate_image",
       inputSchema: {
         type: "object",
         properties: {
           prompt: { type: "string" },
-          aspect_ratio: { type: "string", enum: ["9:16"] },
-          [name]: { type: "string", enum: ["1k", "2k", "4k"] },
+          model: { type: "string" },
+          aspect_ratio: { type: "string" },
         },
       },
     };
-    const i = analyzeImageTool(t);
-    assert.equal(i.resolutionField, name, `failed on ${name}`);
-    assert.deepEqual(i.resolutionValues, ["1k", "2k", "4k"]);
-  }
-});
-check("resolution is never confused with aspect_ratio", () => {
-  const t: McpTool = {
-    name: "generate_image",
-    inputSchema: {
-      type: "object",
-      properties: {
-        prompt: { type: "string" },
-        size: { type: "string", enum: ["1k", "2k"] },
-        aspect_ratio: { type: "string", enum: ["9:16", "1:1"] },
+    assert.equal(describeFields(t).wrapperKey, undefined);
+  });
+  check("finds an unconventionally named prompt field", () => {
+    for (const name of ["text_prompt", "input_text", "caption", "description"]) {
+      const t: McpTool = {
+        name: "generate_image",
+        inputSchema: {
+          type: "object",
+          required: [name],
+          properties: { [name]: { type: "string" } },
+        },
+      };
+      assert.equal(analyzeImageTool(t).promptField, name, `failed on ${name}`);
+    }
+  });
+  check("never picks negative_prompt or style_prompt as the prompt", () => {
+    const t: McpTool = {
+      name: "generate_image",
+      inputSchema: {
+        type: "object",
+        properties: {
+          negative_prompt: { type: "string" },
+          style_prompt: { type: "string" },
+          prompt: { type: "string" },
+        },
       },
-    },
-  };
-  const i = analyzeImageTool(t);
-  assert.equal(i.aspectRatioField, "aspect_ratio");
-  assert.equal(i.resolutionField, "size");
-});
-check("sends each of 1k / 2k / 4k through correctly", () => {
-  for (const res of ["1k", "2k", "4k"]) {
-    const { args } = buildArgs(info, {
-      prompt: "x",
-      model: "nano_banana_2",
-      resolution: res,
+    };
+    assert.equal(analyzeImageTool(t).promptField, "prompt");
+  });
+  await checkAsync("reports the fields it saw when no prompt exists", async () => {
+    const t: McpTool = {
+      name: "generate_image",
+      inputSchema: { type: "object", properties: { model: { type: "string", enum: ["a"] } } },
+    };
+    await assert.rejects(
+      () => buildArgs(analyzeImageTool(t), { prompt: "x" }),
+      (err: unknown) =>
+        err instanceof Error &&
+        /Fields found: model/.test(err.message) &&
+        /Inspector/.test(err.message)
+    );
+  });
+
+  console.log("\nResult parsing");
+  check("keeps an asset URL on a completely unfamiliar host", () => {
+    // A hardcoded CDN allowlist used to discard these, so a finished generation
+    // showed nothing here and polled forever.
+    const p = parseToolResult({
+      structuredContent: {
+        job_id: "job_1",
+        status: "completed",
+        output: { url: "https://totally-unknown-host.example/9f8e7d" },
+      },
     });
-    assert.equal(args.resolution, res);
-  }
-});
-check("GPT Image 2 exposes quality, Nano Banana Pro does not", () => {
-  assert.deepEqual(byId("gpt_image_2").qualities, ["low", "medium", "high"]);
-  assert.deepEqual(byId("nano_banana_2").qualities, []);
-});
-check("Soul V2 offers 1.5k / 2k quality instead of resolution", () => {
-  assert.deepEqual(byId("text2image_soul_v2").resolutions, []);
-});
-check("an uncatalogued model still works, falling back to the schema", () => {
-  const m = byId("some_brand_new_model");
-  assert.equal(m.known, false);
-  assert.equal(m.aspectRatios.length, 10);
-  assert.equal(m.label, "Some Brand New Model");
-});
-
-console.log("\nArgument building");
-check("maps the form onto the server's own field names", () => {
-  const { args } = buildArgs(info, {
-    prompt: "a mom in a kitchen",
-    model: "nano_banana_2",
-    aspectRatio: "9:16",
-    resolution: "4k",
+    assert.ok(p.images.includes("https://totally-unknown-host.example/9f8e7d"));
   });
-  assert.equal(args.prompt, "a mom in a kitchen");
-  assert.equal(args.model, "nano_banana_2");
-  assert.equal(args.aspect_ratio, "9:16");
-  assert.equal(args.resolution, "4k");
-});
-check("sends the prompt verbatim, with nothing appended", () => {
-  const text = "exactly what I typed";
-  const { args } = buildArgs(info, {
-    prompt: text,
-    model: "nano_banana_2",
-    aspectRatio: "1:1",
-  });
-  assert.equal(args.prompt, text);
-});
-check("writes the batch field, clamped to the schema maximum", () => {
-  const { args } = buildArgs(info, { prompt: "x", model: "nano_banana_2" }, 3);
-  assert.equal(args.batch_size, 3);
-});
-check("passes an Advanced field through, drops unknown keys", () => {
-  const { args } = buildArgs(info, {
-    prompt: "x",
-    model: "nano_banana_2",
-    aspectRatio: "1:1",
-    advanced: { folder_id: "abc123", not_a_real_field: "nope" },
-  });
-  assert.equal(args.folder_id, "abc123");
-  assert.ok(!("not_a_real_field" in args));
-});
-check("rejects 4:5 on GPT Image 2 before any credits are spent", () => {
-  assert.throws(
-    () => buildArgs(info, { prompt: "x", model: "gpt_image_2", aspectRatio: "4:5" }),
-    (err: unknown) =>
-      err instanceof InvalidComboError && /GPT Image 2/.test(err.message)
-  );
-});
-check("accepts 4:5 on Nano Banana Pro", () => {
-  const { args } = buildArgs(info, {
-    prompt: "x",
-    model: "nano_banana_2",
-    aspectRatio: "4:5",
-  });
-  assert.equal(args.aspect_ratio, "4:5");
-});
-check("rejects a quality value the chosen model does not support", () => {
-  assert.throws(
-    () => buildArgs(info, { prompt: "x", model: "nano_banana_2", quality: "high" }),
-    InvalidComboError
-  );
-});
-check("the image count ceiling is 3", () => {
-  assert.equal(MAX_COUNT, 3);
-});
-
-console.log("\nReference images");
-check("sends reference URLs as an array on an array-typed field", () => {
-  const { args } = buildArgs(info, {
-    prompt: "x",
-    model: "nano_banana_2",
-    referenceImages: ["https://ex.com/a.png", "https://ex.com/b.png"],
-  });
-  assert.deepEqual(args.image_urls, [
-    "https://ex.com/a.png",
-    "https://ex.com/b.png",
-  ]);
-});
-check("makes an app-relative upload path absolute", () => {
-  const { args } = buildArgs(info, {
-    prompt: "x",
-    model: "nano_banana_2",
-    referenceImages: ["/api/asset/up-123.png"],
-  });
-  const urls = args.image_urls as string[];
-  // Higgsfield fetches these server-side, so a relative path would never load.
-  assert.ok(/^https?:\/\//.test(urls[0]), `expected absolute, got ${urls[0]}`);
-  assert.ok(urls[0].endsWith("/api/asset/up-123.png"));
-});
-check("warns that a localhost reference cannot be fetched", () => {
-  const { warnings } = buildArgs(info, {
-    prompt: "x",
-    model: "nano_banana_2",
-    referenceImages: ["http://localhost:3000/api/asset/up-1.png"],
-  });
-  assert.ok(warnings.some((w) => /localhost/i.test(w)), warnings.join(" | "));
-});
-check("rejects more references than the model accepts", () => {
-  assert.throws(
-    () =>
-      buildArgs(info, {
-        prompt: "x",
-        model: "text2image_soul_v2",
-        referenceImages: ["https://a.com/1.png", "https://b.com/2.png"],
-      }),
-    InvalidComboError
-  );
-});
-check("Soul V2 accepts exactly one reference", () => {
-  const { args } = buildArgs(info, {
-    prompt: "x",
-    model: "text2image_soul_v2",
-    referenceImages: ["https://a.com/1.png"],
-  });
-  assert.deepEqual(args.image_urls, ["https://a.com/1.png"]);
-});
-check("sends a single string when the field is not an array", () => {
-  const t: McpTool = {
-    name: "generate_image",
-    inputSchema: {
-      type: "object",
-      properties: {
-        prompt: { type: "string" },
-        model: { type: "string", enum: ["nano_banana_2"] },
-        image_url: { type: "string" },
+  check("ranks an explicit image extension first", () => {
+    const p = parseToolResult({
+      structuredContent: {
+        meta: { permalink: "https://weird.example/xyz" },
+        output: { image_url: "https://weird.example/final.png" },
       },
-    },
-  };
-  const i = analyzeImageTool(t);
-  assert.equal(i.referenceIsArray, false);
-  const { args, warnings } = buildArgs(i, {
-    prompt: "x",
-    model: "nano_banana_2",
-    referenceImages: ["https://a.com/1.png", "https://b.com/2.png"],
+    });
+    assert.equal(p.images[0], "https://weird.example/final.png");
   });
-  assert.equal(args.image_url, "https://a.com/1.png");
-  assert.ok(warnings.some((w) => /single reference/i.test(w)));
-});
-check("warns instead of failing when the tool takes no references", () => {
-  const t: McpTool = {
-    name: "generate_image",
-    inputSchema: {
-      type: "object",
-      properties: { prompt: { type: "string" } },
-    },
-  };
-  const i = analyzeImageTool(t);
-  const { warnings } = buildArgs(i, {
-    prompt: "x",
-    referenceImages: ["https://a.com/1.png"],
-  });
-  assert.ok(warnings.some((w) => /does not accept reference/i.test(w)));
-});
-
-console.log("\nResult parsing");
-check("pulls an image URL out of a plain text block", () => {
-  const p = parseToolResult({
-    content: [
-      {
-        type: "text",
-        text: "Done! https://cdn.higgsfield.ai/generations/abc123.png",
-      },
-    ],
-  });
-  assert.deepEqual(p.images, [
-    "https://cdn.higgsfield.ai/generations/abc123.png",
-  ]);
-});
-
-check("keeps an asset URL on a completely unfamiliar host", () => {
-  // THE REGRESSION. An earlier version only accepted URLs whose host matched a
-  // hardcoded CDN list, so a result served from anywhere else was discarded —
-  // the generation succeeded on higgsfield.ai while this app showed nothing and
-  // polled forever. Host is no longer a gate.
-  const p = parseToolResult({
-    structuredContent: {
-      job_id: "job_1",
-      status: "completed",
-      output: { url: "https://totally-unknown-host.example/9f8e7d" },
-    },
-  });
-  assert.ok(
-    p.images.includes("https://totally-unknown-host.example/9f8e7d"),
-    `candidate was dropped: ${JSON.stringify(p.images)}`
-  );
-});
-
-check("ranks an explicit image extension above a bare link", () => {
-  const p = parseToolResult({
-    structuredContent: {
-      meta: { permalink: "https://weird.example/xyz" },
-      output: { image_url: "https://weird.example/final.png" },
-    },
-  });
-  assert.equal(p.images[0], "https://weird.example/final.png");
-});
-
-check("ignores docs, pricing and non-asset links", () => {
-  const p = parseToolResult({
-    content: [
-      {
-        type: "text",
-        text: "See https://higgsfield.ai/pricing and https://docs.example/help for details.",
-      },
-    ],
-  });
-  assert.equal(p.images.length, 0, JSON.stringify(p.images));
-});
-
-check("ignores video and json links as image candidates", () => {
-  const p = parseToolResult({
-    structuredContent: {
-      video: "https://cdn.example/clip.mp4",
-      manifest: "https://cdn.example/data.json",
-      image: "https://cdn.example/frame.png",
-    },
-  });
-  assert.deepEqual(p.images, ["https://cdn.example/frame.png"]);
-});
-
-check("a job id no longer implies pending once images are downloaded", () => {
-  // isPending is consulted only AFTER a download attempt now, so a payload with
-  // both a job id and a finished asset is not treated as unfinished.
-  const p = parseToolResult({
-    structuredContent: { job_id: "job_2", status: "completed", url: "https://x.example/a.png" },
-  });
-  assert.equal(p.status, "done");
-  assert.equal(isPending(p), false);
-});
-check("pulls several images out of structuredContent", () => {
-  const p = parseToolResult({
-    structuredContent: {
-      status: "completed",
-      results: [
-        { url: "https://cdn.higgsfield.ai/x/1.jpg" },
-        { url: "https://cdn.higgsfield.ai/x/2.jpg" },
+  check("ignores docs, pricing and non-asset links", () => {
+    const p = parseToolResult({
+      content: [
+        {
+          type: "text",
+          text: "See https://higgsfield.ai/pricing and https://docs.example/help.",
+        },
       ],
-    },
+    });
+    assert.equal(p.images.length, 0, JSON.stringify(p.images));
   });
-  assert.equal(p.images.length, 2);
-  assert.equal(p.status, "done");
-});
-check("parses a JSON document handed back as a string", () => {
-  const p = parseToolResult({
-    content: [
-      { type: "text", text: JSON.stringify({ job_id: "job_789", status: "processing" }) },
-    ],
+  check("ignores video and json links", () => {
+    const p = parseToolResult({
+      structuredContent: {
+        video: "https://cdn.example/clip.mp4",
+        manifest: "https://cdn.example/data.json",
+        image: "https://cdn.example/frame.png",
+      },
+    });
+    assert.deepEqual(p.images, ["https://cdn.example/frame.png"]);
   });
-  assert.equal(p.jobId, "job_789");
-  assert.equal(isPending(p), true);
-});
-check("keeps a base64 image block", () => {
-  const p = parseToolResult({
-    content: [{ type: "image", data: "A".repeat(400), mimeType: "image/webp" }],
+  check("a completed status with an asset is not pending", () => {
+    const p = parseToolResult({
+      structuredContent: { job_id: "j", status: "completed", url: "https://x.example/a.png" },
+    });
+    assert.equal(isPending(p), false);
   });
-  assert.equal(p.base64Images.length, 1);
-  assert.equal(p.base64Images[0].mimeType, "image/webp");
-  assert.equal(isPending(p), false);
-});
+  check("parses a JSON document handed back as a string", () => {
+    const p = parseToolResult({
+      content: [{ type: "text", text: JSON.stringify({ job_id: "job_789", status: "processing" }) }],
+    });
+    assert.equal(p.jobId, "job_789");
+    assert.equal(isPending(p), true);
+  });
 
-console.log("\nDuplicate results (one image must never look like two)");
-
-check("an MCP image block is captured once, not once per path", () => {
-  // The regression: the object branch captured { type:"image", data, mimeType }
-  // as image/webp, then walking into `data` captured the SAME string again as
-  // image/png. Two files, two extensions, one actual image.
-  const p = parseToolResult({
-    content: [{ type: "image", data: "A".repeat(4000), mimeType: "image/webp" }],
+  console.log("\nDuplicate results (one image must never look like two)");
+  check("an MCP image block is captured once, not once per path", () => {
+    const p = parseToolResult({
+      content: [{ type: "image", data: "A".repeat(4000), mimeType: "image/webp" }],
+    });
+    assert.equal(p.base64Images.length, 1);
+    assert.equal(p.base64Images[0].mimeType, "image/webp");
   });
-  assert.equal(
-    p.base64Images.length,
-    1,
-    `expected 1 image, got ${p.base64Images.length} (${p.base64Images.map((i) => i.mimeType).join(", ")})`
-  );
-  assert.equal(p.base64Images[0].mimeType, "image/webp");
-});
-
-check("two genuinely different base64 images are both kept", () => {
-  const p = parseToolResult({
-    content: [
-      { type: "image", data: "A".repeat(4000), mimeType: "image/png" },
-      { type: "image", data: "B".repeat(4000), mimeType: "image/png" },
-    ],
-  });
-  assert.equal(p.base64Images.length, 2);
-});
-
-check("identical base64 payloads collapse to one", () => {
-  const same = "C".repeat(4000);
-  const p = parseToolResult({
-    structuredContent: { primary: { data: same }, mirror: { data: same } },
-  });
-  assert.equal(p.base64Images.length, 1);
-});
-
-check("a long non-image string under a vague key is not treated as an image", () => {
-  const p = parseToolResult({
-    structuredContent: {
-      // Previously matched by a loose key.includes("base") test.
-      database_cursor: "D".repeat(4000),
-    },
-  });
-  assert.equal(p.base64Images.length, 0);
-});
-
-check("two distinct URLs both survive, identical ones collapse", () => {
-  const p = parseToolResult({
-    structuredContent: {
-      results: [
-        { url: "https://cdn.higgsfield.ai/x/1.png" },
-        { url: "https://cdn.higgsfield.ai/x/2.png" },
-        { thumb: "https://cdn.higgsfield.ai/x/1.png" },
+  check("two genuinely different base64 images are both kept", () => {
+    const p = parseToolResult({
+      content: [
+        { type: "image", data: "A".repeat(4000), mimeType: "image/png" },
+        { type: "image", data: "B".repeat(4000), mimeType: "image/png" },
       ],
-    },
+    });
+    assert.equal(p.base64Images.length, 2);
   });
-  assert.equal(p.images.length, 2);
-});
+  check("a long non-image string under a vague key is not an image", () => {
+    const p = parseToolResult({
+      structuredContent: { database_cursor: "D".repeat(4000) },
+    });
+    assert.equal(p.base64Images.length, 0);
+  });
+  check("ImageDedupe keeps distinct bytes and rejects repeats", () => {
+    const d = new ImageDedupe();
+    assert.equal(d.accept(Buffer.from("image-one")), true);
+    assert.equal(d.accept(Buffer.from("image-two")), true);
+    assert.equal(d.accept(Buffer.from("image-one")), false);
+    assert.equal(d.count, 2);
+    assert.equal(d.skipped, 1);
+  });
 
-check("ImageDedupe keeps distinct bytes and rejects repeats", () => {
-  const d = new ImageDedupe();
-  const a = Buffer.from("image-one-bytes");
-  const b = Buffer.from("image-two-bytes");
-  assert.equal(d.accept(a), true);
-  assert.equal(d.accept(b), true);
-  // Same bytes arriving again, e.g. as a URL copy of an inline image, or from a
-  // second fan-out call that returned an identical render.
-  assert.equal(d.accept(Buffer.from("image-one-bytes")), false);
-  assert.equal(d.count, 2);
-  assert.equal(d.skipped, 1);
-});
+  console.log(
+    `\n${failures.length ? `FAILED (${failures.length}): ${failures.join(", ")}` : "All passed"} — ${passed} assertions\n`
+  );
+}
 
-console.log(
-  `\n${process.exitCode ? "FAILED" : "All passed"} — ${passed} assertions\n`
-);
+void main();
